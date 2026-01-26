@@ -1,50 +1,335 @@
-# Welcome to your Expo app 👋
+# MyDepot Frontend - Application Mobile de Gestion de Dépôt de Boisson 🇨🇬
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Application mobile React Native développée avec Expo pour la gestion complète d'un dépôt de boissons au **Congo Brazzaville**.
 
-## Get started
+## 🚀 Technologies
 
-1. Install dependencies
+- **Framework**: Expo (React Native)
+- **Langage**: TypeScript
+- **Navigation**: Expo Router
+- **UI Library**: React Native Paper
+- **State Management**: Zustand
+- **API Client**: TanStack Query (React Query)
+- **Authentification**: JWT + Expo SecureStore
+- **Icons**: Expo Symbols
+- **Charts**: Victory Native (à venir)
 
-   ```bash
-   npm install
-   ```
+## 📋 Fonctionnalités Implémentées
 
-2. Start the app
+### ✅ Authentification
+- [x] Connexion email/password
+- [x] Inscription
+- [x] Connexion OTP SMS
+- [x] Mot de passe oublié
+- [x] Gestion des tokens JWT
+- [x] Auto-refresh des tokens
 
-   ```bash
-   npx expo start
-   ```
+### ✅ Navigation
+- [x] Structure Expo Router (App Router)
+- [x] Navigation Drawer avec menu par rôle
+- [x] Routes protégées par authentification
+- [x] Navigation par rôle (ADMIN, GERANT, CAISSIER, CLIENT)
 
-In the output, you'll find options to open the app in a
+### ✅ Dashboard
+- [x] Vue d'ensemble avec KPIs
+- [x] Ventes du jour et du mois
+- [x] Alertes de stock faible
+- [x] Commandes en attente
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### ✅ Gestion des Produits
+- [x] Liste des produits avec recherche
+- [x] Création de produits
+- [x] Édition (structure prête)
+- [x] Suppression avec confirmation
+- [x] Filtres par catégorie, marque, dépôt
+- [x] Gestion des catégories et marques
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### ✅ Gestion des Ventes (Caisse)
+- [x] Liste des ventes avec historique
+- [x] Création de vente (interface de caisse)
+- [x] Panier dynamique
+- [x] Recherche de produits
+- [x] Calcul automatique des totaux
+- [x] Factures (structure prête)
 
-## Get a fresh project
+### ✅ Composants UI Réutilisables
+- [x] KPICard - Cartes de statistiques
+- [x] EmptyState - État vide avec action
+- [x] ErrorMessage - Affichage d'erreurs
+- [x] LoadingOverlay - Overlay de chargement
+- [x] SearchBar - Barre de recherche
+- [x] StatusBadge - Badge de statut
 
-When you're ready, run:
+### ✅ Services API
+- [x] Auth Service
+- [x] Depot Service
+- [x] Product Service (+ Categories, Brands)
+- [x] Stock Service
+- [x] Sale Service
+- [x] Payment Service
+- [x] Client Service
+- [x] Purchase Service
+- [x] Supplier Service
+- [x] Finance Service
+- [x] Expense Service
+- [x] Salary Service
+- [x] Log Service
+- [x] Invoice Service
 
-```bash
-npm run reset-project
+### ✅ Hooks Custom
+- [x] useAuth - Authentification
+- [x] useProducts - Gestion produits
+- [x] useDepots - Gestion dépôts
+- [x] useSales - Gestion ventes
+- [x] useFinance - Finance et rapports
+
+### ✅ State Management
+- [x] Cart Store (Zustand) - Panier de vente
+- [x] App Store (Zustand) - État global de l'app
+- [x] Auth Context - Contexte d'authentification
+
+## 📱 Structure du Projet
+
+```
+mydepot-frontend/
+├── app/                          # Expo Router
+│   ├── _layout.tsx              # Layout racine
+│   ├── index.tsx                # Page d'accueil
+│   ├── (auth)/                  # Groupe d'authentification
+│   │   ├── _layout.tsx
+│   │   ├── login.tsx
+│   │   ├── register.tsx
+│   │   ├── otp-verification.tsx
+│   │   └── forgot-password.tsx
+│   └── (main)/                  # Groupe principal (après login)
+│       ├── _layout.tsx          # Drawer navigation
+│       ├── dashboard.tsx
+│       ├── profile.tsx
+│       ├── products/
+│       │   ├── _layout.tsx
+│       │   ├── index.tsx
+│       │   └── create.tsx
+│       ├── sales/
+│       │   ├── _layout.tsx
+│       │   ├── index.tsx
+│       │   └── create.tsx
+│       ├── depots.tsx
+│       ├── purchases.tsx
+│       ├── clients.tsx
+│       └── finance.tsx
+├── components/
+│   └── ui/                      # Composants UI réutilisables
+│       ├── KPICard.tsx
+│       ├── EmptyState.tsx
+│       ├── LoadingOverlay.tsx
+│       ├── ErrorMessage.tsx
+│       ├── SearchBar.tsx
+│       └── StatusBadge.tsx
+├── services/                    # Services API
+│   ├── api.ts                   # Configuration Axios + interceptors
+│   ├── auth.service.ts
+│   ├── depot.service.ts
+│   ├── product.service.ts
+│   ├── stock.service.ts
+│   ├── sale.service.ts
+│   ├── client.service.ts
+│   ├── purchase.service.ts
+│   ├── finance.service.ts
+│   ├── log.service.ts
+│   └── invoice.service.ts
+├── hooks/                       # Hooks custom
+│   ├── useAuth.ts
+│   ├── useProducts.ts
+│   ├── useDepots.ts
+│   ├── useSales.ts
+│   └── useFinance.ts
+├── stores/                      # Zustand stores
+│   ├── cart.store.ts
+│   └── app.store.ts
+├── contexts/
+│   └── AuthContext.tsx
+├── types/
+│   └── index.ts                 # Types TypeScript
+├── utils/
+│   ├── constants.ts
+│   ├── format.ts
+│   └── validation.ts
+└── constants/
+    └── theme.ts                 # Thème React Native Paper
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 🛠️ Installation
 
-## Learn more
+1. **Cloner le projet**
+```bash
+cd mydepot-frontend
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+2. **Installer les dépendances**
+```bash
+npm install
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+3. **Configurer l'API**
+Modifier l'URL de base dans `services/api.ts`:
+```typescript
+baseURL: 'http://YOUR_API_URL/api/v1',
+```
 
-## Join the community
+4. **Lancer l'application**
+```bash
+# Développement
+npm start
 
-Join our community of developers creating universal apps.
+# Android
+npm run android
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+# iOS
+npm run ios
+
+# Web
+npm run web
+```
+
+## 🧪 Comptes de Test
+
+Pour tester rapidement l'application, utilisez les comptes de test :
+
+### Connexion Rapide
+Sur l'écran de login, cliquez sur **"Connexion test"** et sélectionnez :
+- **Admin** : admin@mydepot.com / admin123
+- **Gérant** : gerant@mydepot.com / gerant123
+- **Caissier** : caissier@mydepot.com / caissier123
+- **Client** : client@mydepot.com / client123
+
+📄 Consultez [COMPTES_TEST.md](./COMPTES_TEST.md) pour plus de détails.
+
+## 📝 Configuration Backend
+
+L'application se connecte à l'API backend MyDepot. Assurez-vous que :
+
+1. Le backend est démarré sur `http://localhost:3000`
+2. Les endpoints API sont accessibles
+3. Les comptes de test sont créés (voir [COMPTES_TEST.md](./COMPTES_TEST.md))
+
+## 🌍 Configuration Congo Brazzaville
+
+### Format Téléphone
+- **Indicatif** : +242
+- **Format** : +242 XX XXX XX XX
+- **Exemple** : +242 06 123 45 67
+
+### Devise
+- **FCFA (XOF)** - Franc CFA
+- Tous les montants sont formatés en FCFA
+
+### Mobile Money
+Support des opérateurs locaux :
+- Orange Money
+- MTN Money
+- Moov Money
+- Wave
+
+## 🔐 Rôles et Permissions
+
+### ADMIN
+- Accès complet
+- Gestion des utilisateurs et dépôts
+- Tous les modules
+
+### GERANT
+- Gestion du dépôt assigné
+- Ventes, achats, stocks
+- Rapports financiers
+
+### CAISSIER
+- Création de ventes
+- Gestion des paiements
+- Consultation des stocks
+
+### CLIENT
+- Consultation de ses commandes
+- Historique des achats
+
+## 📦 Fonctionnalités à Compléter
+
+### Produits
+- [ ] Écran d'édition de produit
+- [ ] Gestion du stock par produit
+- [ ] Import/Export produits
+- [ ] Scanner de code-barres
+
+### Ventes
+- [ ] Détails de facture
+- [ ] Génération PDF facture (58mm, 80mm, A4)
+- [ ] Impression Bluetooth
+- [ ] Paiement Mobile Money
+- [ ] Multi-paiements
+- [ ] Gestion crédit client
+
+### Achats
+- [ ] Liste des achats
+- [ ] Création d'achat
+- [ ] Gestion fournisseurs
+- [ ] Réception de stock
+
+### Finance
+- [ ] Dashboard financier
+- [ ] Gestion dépenses
+- [ ] Paiement salaires
+- [ ] Rapports Excel/PDF
+- [ ] Graphiques de trésorerie
+
+### Clients
+- [ ] Liste des clients
+- [ ] Création/Édition client
+- [ ] Historique commandes
+- [ ] Statistiques client
+
+### Dépôts
+- [ ] Liste des dépôts
+- [ ] Création/Édition dépôt
+- [ ] Affectation utilisateurs
+- [ ] Transferts inter-dépôts
+
+### Avancées
+- [ ] Mode offline partiel
+- [ ] Notifications push
+- [ ] Dark mode
+- [ ] Multi-langue
+- [ ] Export rapports
+- [ ] Logs d'activité
+
+## 🎨 Design System
+
+### Couleurs
+- **Primary**: #2196F3 (Bleu)
+- **Secondary**: #4CAF50 (Vert)
+- **Accent**: #FF9800 (Orange)
+- **Error**: #F44336 (Rouge)
+
+### Composants
+Tous les composants utilisent React Native Paper pour une expérience cohérente Material Design.
+
+## 🧪 Tests
+
+Tests à implémenter :
+- Tests unitaires (Jest)
+- Tests d'intégration
+- Tests E2E (Detox)
+
+## 📄 License
+
+Propriétaire - MyDepot 2024
+
+## 👥 Contributeurs
+
+- Votre équipe de développement
+
+## 📞 Support
+
+Pour toute question ou problème, contactez l'équipe de développement.
+
+---
+
+**Note**: Cette application est en cours de développement. Certaines fonctionnalités sont partiellement implémentées et nécessitent des améliorations.
