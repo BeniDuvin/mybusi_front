@@ -1,153 +1,90 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
 import React from 'react';
-import { Drawer } from 'expo-router/drawer';
-import { DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
-import { View, StyleSheet } from 'react-native';
-import { Avatar, Text, Divider, useTheme } from 'react-native-paper';
-import { useAuthContext } from '@/contexts/AuthContext';
-import { ROLE_LABELS } from '@/utils/constants';
-import { Spacing } from '@/constants/theme';
-import { SymbolView } from 'expo-symbols';
-
-function CustomDrawerContent(props: any) {
-  const { user, signOut } = useAuthContext();
-  const theme = useTheme();
-
-  return (
-    <DrawerContentScrollView {...props}>
-      <View style={[styles.userInfo, { backgroundColor: theme.colors.primaryContainer }]}>
-        <Avatar.Text size={64} label={user?.firstName?.[0] || 'U'} />
-        <Text variant="titleMedium" style={styles.userName}>
-          {user?.firstName} {user?.lastName}
-        </Text>
-        <Text variant="bodySmall" style={styles.userRole}>
-          {user?.role && ROLE_LABELS[user.role]}
-        </Text>
-      </View>
-
-      <Divider />
-
-      <DrawerItemList {...props} />
-
-      <Divider style={styles.divider} />
-    </DrawerContentScrollView>
-  );
-}
+import { useTheme } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MainLayout() {
-  const { user, hasRole } = useAuthContext();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
-  const getIcon = (name: any) => {
-    return () => (
-      <SymbolView name={name as any} size={24} tintColor={theme.colors.onSurface} type="hierarchical" />
+  const tabIcon = (name: React.ComponentProps<typeof MaterialCommunityIcons>['name']) => {
+    return ({ focused }: { focused: boolean }) => (
+      <MaterialCommunityIcons
+        name={name}
+        size={22}
+        color={focused ? theme.colors.primary : theme.colors.onSurface}
+      />
     );
   };
 
   return (
-    <Drawer
-      drawerContent={(props) => <CustomDrawerContent {...props} />}
+    <Tabs
       screenOptions={{
-        headerShown: true,
-        drawerActiveTintColor: theme.colors.primary,
-        drawerInactiveTintColor: theme.colors.onSurface,
+        headerShown: false,
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.onSurface,
+        tabBarStyle: {
+          backgroundColor: theme.colors.background,
+          borderTopColor: theme.colors.outline,
+          height: 58 + insets.bottom,
+          paddingBottom: insets.bottom,
+          paddingTop: 6,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+        },
       }}
     >
-      <Drawer.Screen
+      <Tabs.Screen
         name="dashboard"
         options={{
-          drawerLabel: 'Tableau de bord',
           title: 'Tableau de bord',
-          drawerIcon: getIcon('chart.bar'),
+          tabBarLabel: 'Dashboard',
+          tabBarIcon: tabIcon('chart-bar'),
         }}
       />
-
-      {hasRole(['ADMIN', 'GERANT']) && (
-        <Drawer.Screen
-          name="depots"
-          options={{
-            drawerLabel: 'Dépôts',
-            title: 'Dépôts',
-            drawerIcon: getIcon('building.2'),
-          }}
-        />
-      )}
-
-      <Drawer.Screen
-        name="products"
-        options={{
-          drawerLabel: 'Produits',
-          title: 'Produits',
-          drawerIcon: getIcon('cube.box'),
-        }}
-      />
-
-      <Drawer.Screen
+      <Tabs.Screen
         name="sales"
         options={{
-          drawerLabel: 'Ventes',
           title: 'Ventes',
-          drawerIcon: getIcon('cart'),
+          tabBarLabel: 'Ventes',
+          tabBarIcon: tabIcon('cart'),
         }}
       />
-
-      {hasRole(['ADMIN', 'GERANT']) && (
-        <Drawer.Screen
-          name="purchases"
-          options={{
-            drawerLabel: 'Achats',
-            title: 'Achats',
-            drawerIcon: getIcon('shippingbox'),
-          }}
-        />
-      )}
-
-      <Drawer.Screen
-        name="clients"
+      <Tabs.Screen
+        name="products"
         options={{
-          drawerLabel: 'Clients',
-          title: 'Clients',
-          drawerIcon: getIcon('person.2'),
+          title: 'Produits',
+          tabBarLabel: 'Produits',
+          tabBarIcon: tabIcon('cube-outline'),
         }}
       />
-
-      {hasRole(['ADMIN', 'GERANT']) && (
-        <Drawer.Screen
-          name="finance"
-          options={{
-            drawerLabel: 'Finance',
-            title: 'Finance',
-            drawerIcon: getIcon('dollarsign.circle'),
-          }}
-        />
-      )}
-
-      <Drawer.Screen
+      <Tabs.Screen
+        name="purchases"
+        options={{
+          title: 'Achats',
+          tabBarLabel: 'Achats',
+          tabBarIcon: tabIcon('cart-arrow-down'),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
-          drawerLabel: 'Profil',
-          title: 'Mon Profil',
-          drawerIcon: getIcon('person'),
+          title: 'Profil',
+          tabBarLabel: 'Profil',
+          tabBarIcon: tabIcon('account-circle-outline'),
         }}
       />
-    </Drawer>
+
+      <Tabs.Screen name="depots" options={{ href: null }} />
+      <Tabs.Screen name="clients" options={{ href: null }} />
+      <Tabs.Screen name="finance" options={{ href: null }} />
+      <Tabs.Screen name="users/index" options={{ href: null }} />
+      <Tabs.Screen name="payments/index" options={{ href: null }} />
+      <Tabs.Screen name="settings" options={{ href: null }} />
+      <Tabs.Screen name="help" options={{ href: null }} />
+      <Tabs.Screen name="about" options={{ href: null }} />
+    </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  userInfo: {
-    padding: Spacing.lg,
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  userName: {
-    marginTop: Spacing.md,
-    fontWeight: 'bold',
-  },
-  userRole: {
-    opacity: 0.7,
-    marginTop: Spacing.xs,
-  },
-  divider: {
-    marginVertical: Spacing.md,
-  },
-});

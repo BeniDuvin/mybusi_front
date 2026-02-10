@@ -5,7 +5,7 @@ import { Link, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { authService } from '@/services/auth.service';
-import { Spacing } from '@/constants/theme';
+import { BorderRadius, Shadows, Spacing } from '@/constants/theme';
 import { isValidEmail, isValidPassword, isValidPhone } from '@/utils/validation';
 
 export default function RegisterScreen() {
@@ -95,7 +95,15 @@ export default function RegisterScreen() {
             </Text>
           </View>
 
-          <View style={styles.form}>
+          <View
+            style={[
+              styles.form,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outline,
+              },
+            ]}
+          >
             <TextInput
               label="Prénom"
               value={formData.firstName}
@@ -226,6 +234,10 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%',
+    borderWidth: 1,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    ...Shadows.small,
   },
   input: {
     marginBottom: Spacing.md,

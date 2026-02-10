@@ -19,7 +19,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["WAKE_LOCK"]
     },
     "web": {
       "output": "static",
@@ -27,6 +28,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Autoriser l'application à accéder à vos photos",
+          "cameraPermission": "Autoriser l'application à accéder à la caméra"
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -41,6 +49,9 @@
       ],
       "expo-secure-store"
     ],
+    "extra": {
+      "apiBaseUrl": "http://YOUR_LOCAL_IP:3000/api/v1"
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

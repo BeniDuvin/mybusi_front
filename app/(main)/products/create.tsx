@@ -1,20 +1,20 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { Spacing } from '@/constants/theme';
+import { useDepots } from '@/hooks/useDepots';
+import { useBrands, useCategories, useCreateProduct } from '@/hooks/useProducts';
+import type { CreateProductRequest } from '@/types';
+import { Picker } from '@react-native-picker/picker';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import {
-  Button,
-  Text,
-  TextInput,
-  useTheme,
-  Snackbar,
-  SegmentedButtons,
+    Button,
+    Snackbar,
+    Text,
+    TextInput,
+    useTheme,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useCreateProduct, useCategories, useBrands } from '@/hooks/useProducts';
-import { useDepots } from '@/hooks/useDepots';
-import { Spacing } from '@/constants/theme';
-import { Picker } from '@react-native-picker/picker';
-import type { CreateProductRequest } from '@/types';
 
 export default function CreateProductScreen() {
   const theme = useTheme();
@@ -29,6 +29,7 @@ export default function CreateProductScreen() {
     name: '',
     sku: '',
     barcode: '',
+    imageUrl: '',
     categoryId: '',
     brandId: '',
     depotId: '',
@@ -39,6 +40,132 @@ export default function CreateProductScreen() {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const generateSku = (name: string) => {
+    const base = name
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 12);
+    const suffix = Math.floor(1000 + Math.random() * 9000);
+    return base ? `${base}-${suffix}` : `SKU-${suffix}`;
+  };
+
+  const generateBarcode = () => {
+    const raw = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    return raw.slice(-13);
+  };
+
+  const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+  const getAssetSizeBytes = (asset: ImagePicker.ImagePickerAsset) => {
+    if (typeof asset.fileSize === 'number') return asset.fileSize;
+    if (!asset.base64) return 0;
+    return Math.floor((asset.base64.length * 3) / 4);
+  };
+
+  const getImageMediaTypes = () => {
+    const picker = ImagePicker as unknown as {
+      MediaType?: { Images?: string; Image?: string };
+      MediaTypeOptions?: { Images?: string };
+    };
+    if (picker.MediaType?.Images) return [picker.MediaType.Images];
+    if (picker.MediaType?.Image) return [picker.MediaType.Image];
+    if (picker.MediaTypeOptions?.Images) return picker.MediaTypeOptions.Images;
+    return undefined;
+  };
+
+  const buildImageDataUrl = (asset: ImagePicker.ImagePickerAsset) => {
+    if (!asset.base64) return '';
+    const mimeType = asset.mimeType || 'image/jpeg';
+    return `data:${mimeType};base64,${asset.base64}`;
+  };
+
+  useEffect(() => {
+    if (formData.name && !formData.sku) {
+      setFormData((prev) => ({ ...prev, sku: generateSku(prev.name) }));
+    }
+    if (!formData.barcode) {
+      setFormData((prev) => ({ ...prev, barcode: generateBarcode() }));
+    }
+  }, [formData.name]);
+
+  const handlePickFromGallery = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        setError("Permission galerie refusée");
+        return;
+      }
+
+      const mediaTypes = getImageMediaTypes();
+      const result = await ImagePicker.launchImageLibraryAsync({
+        ...(mediaTypes ? { mediaTypes } : {}),
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (result.canceled) return;
+      const asset = result.assets?.[0];
+      if (!asset) {
+        setError("Impossible de récupérer l'image sélectionnée");
+        return;
+      }
+      const sizeBytes = getAssetSizeBytes(asset);
+      if (sizeBytes > MAX_IMAGE_BYTES) {
+        setError("Image trop lourde (max 5 Mo)");
+        return;
+      }
+      const dataUrl = buildImageDataUrl(asset);
+      if (!dataUrl) {
+        setError("Impossible de convertir l'image sélectionnée");
+        return;
+      }
+      setFormData((prev) => ({ ...prev, imageUrl: dataUrl }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      setError(message ? `Erreur lors de la sélection: ${message}` : "Erreur lors de la sélection de l'image");
+    }
+  };
+
+  const handlePickFromCamera = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        setError("Permission caméra refusée");
+        return;
+      }
+
+      const mediaTypes = getImageMediaTypes();
+      const result = await ImagePicker.launchCameraAsync({
+        ...(mediaTypes ? { mediaTypes } : {}),
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (result.canceled) return;
+      const asset = result.assets?.[0];
+      if (!asset) {
+        setError("Impossible de récupérer la photo");
+        return;
+      }
+      const sizeBytes = getAssetSizeBytes(asset);
+      if (sizeBytes > MAX_IMAGE_BYTES) {
+        setError("Image trop lourde (max 5 Mo)");
+        return;
+      }
+      const dataUrl = buildImageDataUrl(asset);
+      if (!dataUrl) {
+        setError("Impossible de convertir la photo");
+        return;
+      }
+      setFormData((prev) => ({ ...prev, imageUrl: dataUrl }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      setError(message ? `Erreur lors de la prise: ${message}` : "Erreur lors de la prise de photo");
+    }
+  };
 
   const handleSubmit = async () => {
     // Validation
@@ -61,7 +188,11 @@ export default function CreateProductScreen() {
       await createMutation.mutateAsync(formData);
       setSuccess('Produit créé avec succès');
       setTimeout(() => {
-        router.back();
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace('/products');
+        }
       }, 1500);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Erreur lors de la création');
@@ -88,20 +219,51 @@ export default function CreateProductScreen() {
           />
 
           <TextInput
-            label="Code SKU *"
+            label="Code SKU (auto)"
             value={formData.sku}
-            onChangeText={(text) => setFormData({ ...formData, sku: text })}
             mode="outlined"
-            style={styles.input}
+            editable={false}
+            style={[styles.input, styles.readonlyInput]}
           />
 
           <TextInput
-            label="Code-barres"
+            label="Code-barres (auto)"
             value={formData.barcode}
-            onChangeText={(text) => setFormData({ ...formData, barcode: text })}
             mode="outlined"
-            style={styles.input}
+            editable={false}
+            style={[styles.input, styles.readonlyInput]}
           />
+
+          <View style={styles.imageSection}>
+            <Text variant="bodyMedium" style={styles.sectionLabel}>
+              Image du produit (optionnel)
+            </Text>
+            {formData.imageUrl ? (
+              <View style={styles.imagePreviewWrapper}>
+                <Image source={{ uri: formData.imageUrl }} style={styles.imagePreview} />
+                <Button mode="text" onPress={() => setFormData({ ...formData, imageUrl: '' })}>
+                  Retirer l'image
+                </Button>
+              </View>
+            ) : null}
+            <View style={styles.imageActions}>
+            <Button mode="outlined" onPress={handlePickFromGallery} icon="image">
+              Galerie
+            </Button>
+            <Button mode="outlined" onPress={handlePickFromCamera} icon="camera">
+              Caméra
+            </Button>
+            </View>
+            <TextInput
+              label="URL de l'image"
+              value={formData.imageUrl || ''}
+              onChangeText={(text) => setFormData({ ...formData, imageUrl: text })}
+              mode="outlined"
+              style={styles.input}
+              placeholder="https://..."
+              autoCapitalize="none"
+            />
+          </View>
 
           <View style={styles.pickerContainer}>
             <Text variant="bodyMedium" style={styles.pickerLabel}>
@@ -185,7 +347,17 @@ export default function CreateProductScreen() {
           />
 
           <View style={styles.actions}>
-            <Button mode="outlined" onPress={() => router.back()} style={styles.cancelButton}>
+            <Button
+              mode="outlined"
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/products');
+                }
+              }}
+              style={styles.cancelButton}
+            >
               Annuler
             </Button>
             <Button
@@ -238,6 +410,9 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: Spacing.md,
   },
+  readonlyInput: {
+    opacity: 0.7,
+  },
   pickerContainer: {
     marginBottom: Spacing.md,
     borderWidth: 1,
@@ -251,6 +426,28 @@ const styles = StyleSheet.create({
   },
   picker: {
     marginHorizontal: Spacing.sm,
+  },
+  imageSection: {
+    marginBottom: Spacing.md,
+  },
+  sectionLabel: {
+    opacity: 0.7,
+    marginBottom: Spacing.sm,
+  },
+  imagePreviewWrapper: {
+    marginBottom: Spacing.sm,
+  },
+  imagePreview: {
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+    marginBottom: Spacing.xs,
+    backgroundColor: '#EEE',
+  },
+  imageActions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
   actions: {
     flexDirection: 'row',

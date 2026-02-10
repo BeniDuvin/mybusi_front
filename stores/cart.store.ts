@@ -1,27 +1,44 @@
-import { create } from 'zustand';
 import type { Product } from '@/types';
+import { create } from 'zustand';
+
+export type PackagingType = 'UNITE' | 'CASIER' | 'CARTON' | 'PAQUET' | 'AUTRE';
 
 export interface CartItem {
   product: Product;
   quantity: number;
   unitPrice: number;
   discount: number;
+  packageType: PackagingType;
+  packageLabel?: string;
+  packageSize: number;
+  packageQuantity: number;
 }
 
 interface CartStore {
   items: CartItem[];
   clientId: string | null;
+  clientName: string;
   discount: number;
   tax: number;
   notes: string;
   
   // Actions
-  addItem: (product: Product, quantity?: number) => void;
+  addItem: (
+    product: Product,
+    quantity?: number,
+    packageInfo?: {
+      packageType: PackagingType;
+      packageLabel?: string;
+      packageSize: number;
+      packageQuantity: number;
+    }
+  ) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   updateDiscount: (productId: string, discount: number) => void;
   updateItemPrice: (productId: string, price: number) => void;
   setClient: (clientId: string | null) => void;
+  setClientName: (name: string) => void;
   setGlobalDiscount: (discount: number) => void;
   setTax: (tax: number) => void;
   setNotes: (notes: string) => void;
@@ -33,20 +50,32 @@ interface CartStore {
   getItemsCount: () => number;
 }
 
+const toNumber = (value: unknown) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+};
+
 export const useCartStore = create<CartStore>((set, get) => ({
   items: [],
   clientId: null,
+  clientName: '',
   discount: 0,
   tax: 0,
   notes: '',
 
-  addItem: (product, quantity = 1) => {
+  addItem: (product, quantity = 1, packageInfo) => {
     const items = get().items;
     const existingIndex = items.findIndex((item) => item.product.id === product.id);
 
     if (existingIndex >= 0) {
       const newItems = [...items];
       newItems[existingIndex].quantity += quantity;
+      if (packageInfo) {
+        newItems[existingIndex].packageType = packageInfo.packageType;
+        newItems[existingIndex].packageLabel = packageInfo.packageLabel;
+        newItems[existingIndex].packageSize = packageInfo.packageSize;
+        newItems[existingIndex].packageQuantity = packageInfo.packageQuantity;
+      }
       set({ items: newItems });
     } else {
       set({
@@ -55,8 +84,12 @@ export const useCartStore = create<CartStore>((set, get) => ({
           {
             product,
             quantity,
-            unitPrice: product.sellingPrice,
+            unitPrice: toNumber(product.sellingPrice),
             discount: 0,
+            packageType: packageInfo?.packageType ?? 'UNITE',
+            packageLabel: packageInfo?.packageLabel,
+            packageSize: packageInfo?.packageSize ?? 1,
+            packageQuantity: packageInfo?.packageQuantity ?? quantity,
           },
         ],
       });
@@ -95,21 +128,24 @@ export const useCartStore = create<CartStore>((set, get) => ({
     
     if (index >= 0) {
       const newItems = [...items];
-      newItems[index].unitPrice = price;
+      newItems[index].unitPrice = toNumber(price);
       set({ items: newItems });
     }
   },
 
   setClient: (clientId) => set({ clientId }),
+  setClientName: (name) => set({ clientName: name }),
   setGlobalDiscount: (discount) => set({ discount }),
   setTax: (tax) => set({ tax }),
   setNotes: (notes) => set({ notes }),
   
-  clear: () => set({ items: [], clientId: null, discount: 0, tax: 0, notes: '' }),
+  clear: () =>
+    set({ items: [], clientId: null, clientName: '', discount: 0, tax: 0, notes: '' }),
 
   getSubtotal: () => {
     return get().items.reduce((sum, item) => {
-      const lineTotal = item.quantity * item.unitPrice - item.discount;
+      const lineTotal =
+        toNumber(item.quantity) * toNumber(item.unitPrice) - toNumber(item.discount);
       return sum + lineTotal;
     }, 0);
   },

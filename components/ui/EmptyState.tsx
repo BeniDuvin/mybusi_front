@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, Text, useTheme } from 'react-native-paper';
 import { SymbolView } from 'expo-symbols';
-import { Spacing } from '@/constants/theme';
+import { BorderRadius, Shadows, Spacing } from '@/constants/theme';
 
 interface EmptyStateProps {
   icon?: string;
@@ -23,29 +23,39 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 
   return (
     <View style={styles.container}>
-      <SymbolView
-        name={icon as any}
-        size={64}
-        tintColor={theme.colors.onSurfaceDisabled}
-        type="hierarchical"
-        style={styles.icon}
-      />
-      
-      <Text variant="titleLarge" style={styles.title}>
-        {title}
-      </Text>
-      
-      {message && (
-        <Text variant="bodyMedium" style={styles.message}>
-          {message}
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.outline,
+          },
+        ]}
+      >
+        <SymbolView
+          name={icon as any}
+          size={64}
+          tintColor={theme.colors.onSurfaceDisabled}
+          type="hierarchical"
+          style={styles.icon}
+        />
+
+        <Text variant="titleLarge" style={styles.title}>
+          {title}
         </Text>
-      )}
-      
-      {actionLabel && onAction && (
-        <Button mode="contained" onPress={onAction} style={styles.button}>
-          {actionLabel}
-        </Button>
-      )}
+
+        {message && (
+          <Text variant="bodyMedium" style={styles.message}>
+            {message}
+          </Text>
+        )}
+
+        {actionLabel && onAction && (
+          <Button mode="contained" onPress={onAction} style={styles.button}>
+            {actionLabel}
+          </Button>
+        )}
+      </View>
     </View>
   );
 };
@@ -56,6 +66,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.xl,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 420,
+    alignItems: 'center',
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderRadius: BorderRadius.xl,
+    ...Shadows.small,
   },
   icon: {
     marginBottom: Spacing.lg,

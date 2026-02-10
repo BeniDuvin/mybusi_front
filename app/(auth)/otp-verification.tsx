@@ -5,7 +5,7 @@ import { Link, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { authService } from '@/services/auth.service';
-import { Spacing } from '@/constants/theme';
+import { BorderRadius, Shadows, Spacing } from '@/constants/theme';
 import { isValidPhone } from '@/utils/validation';
 
 export default function OTPVerificationScreen() {
@@ -88,7 +88,15 @@ export default function OTPVerificationScreen() {
             </Text>
           </View>
 
-          <View style={styles.form}>
+          <View
+            style={[
+              styles.form,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outline,
+              },
+            ]}
+          >
             {step === 'phone' ? (
               <>
                 <TextInput
@@ -212,6 +220,10 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%',
+    borderWidth: 1,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    ...Shadows.small,
   },
   input: {
     marginBottom: Spacing.md,

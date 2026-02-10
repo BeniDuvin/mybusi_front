@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { Button, Text, TextInput, useTheme, Snackbar } from 'react-native-paper';
-import { Link, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Spacing } from '@/constants/theme';
+import { BorderRadius, Shadows, Spacing } from '@/constants/theme';
 import { isValidEmail } from '@/utils/validation';
+import { Link, useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Button, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ForgotPasswordScreen() {
   const theme = useTheme();
@@ -34,7 +34,11 @@ export default function ForgotPasswordScreen() {
       // await authService.resetPassword({ email });
       setSuccess('Un lien de réinitialisation a été envoyé à votre email');
       setTimeout(() => {
-        router.back();
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace('/login');
+        }
       }, 2000);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Échec de la réinitialisation');
@@ -59,7 +63,15 @@ export default function ForgotPasswordScreen() {
             </Text>
           </View>
 
-          <View style={styles.form}>
+          <View
+            style={[
+              styles.form,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outline,
+              },
+            ]}
+          >
             <TextInput
               label="Email"
               value={email}
@@ -137,6 +149,10 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%',
+    borderWidth: 1,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    ...Shadows.small,
   },
   input: {
     marginBottom: Spacing.md,

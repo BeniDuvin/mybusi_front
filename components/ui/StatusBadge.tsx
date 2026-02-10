@@ -22,7 +22,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'small'
       case 'PENDING':
         return {
           label: 'En attente',
-          color: '#FFA726',
+          color: theme.colors.tertiary,
           textColor: '#fff',
         };
       case 'CANCELLED':
@@ -52,7 +52,13 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'small'
   return (
     <Chip
       mode="flat"
-      style={[styles.badge, { backgroundColor: config.color }]}
+      style={[
+        styles.badge,
+        {
+          backgroundColor: config.color,
+          borderColor: theme.colors.outline,
+        },
+      ]}
       textStyle={[styles.text, { color: config.textColor }]}
       compact={size === 'small'}
     >
@@ -64,6 +70,9 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'small'
 const styles = StyleSheet.create({
   badge: {
     alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 6,
   },
   text: {
     fontSize: 12,

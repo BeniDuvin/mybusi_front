@@ -1,11 +1,11 @@
-import React, { useEffect } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { PaperProvider } from 'react-native-paper';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
-import { lightTheme } from '@/constants/theme';
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
+import { lightTheme } from '@/constants/theme';
+import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import React, { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { PaperProvider } from 'react-native-paper';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,6 +25,9 @@ function RootLayoutNav() {
     if (loading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const isSplash = segments.length === 0 || segments[0] === 'index';
+
+    if (isSplash) return;
 
     if (!user && !inAuthGroup) {
       // Redirect to login if not authenticated
@@ -41,6 +44,7 @@ function RootLayoutNav() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(main)" />
     </Stack>

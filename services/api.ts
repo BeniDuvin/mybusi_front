@@ -1,8 +1,37 @@
+import { API_BASE_URL } from '@/utils/constants';
 import axios, { AxiosError } from 'axios';
+import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+
+const fallbackBaseUrl =
+  Platform.OS === 'android' && !Constants.isDevice
+    ? 'http://10.0.2.2:3000/api/v1'
+    : Platform.OS === 'ios' && !Constants.isDevice
+      ? 'http://localhost:3000/api/v1'
+      : API_BASE_URL;
+
+const configuredBaseUrl =
+  process.env.EXPO_PUBLIC_API_BASE_URL ||
+  Constants.expoConfig?.extra?.apiBaseUrl ||
+  fallbackBaseUrl;
+
+const isLocalhost = configuredBaseUrl.includes('localhost') || configuredBaseUrl.includes('127.0.0.1');
+const runtimeApiBaseUrl =
+  Platform.OS === 'android' && !Constants.isDevice && isLocalhost
+    ? 'http://10.0.2.2:3000/api/v1'
+    : configuredBaseUrl;
+
+if (Platform.OS === 'android' && Constants.isDevice && isLocalhost) {
+  console.warn(
+    'API baseURL is set to localhost on a device. Use your PC local IP instead.'
+  );
+}
+
+console.log('API baseURL:', runtimeApiBaseUrl);
 
 export const api = axios.create({
-  baseURL: 'http://localhost:3000/api/v1',
+  baseURL: runtimeApiBaseUrl,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',

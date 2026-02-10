@@ -1,18 +1,22 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { Button, Text, TextInput, useTheme, Snackbar, Chip, Portal, Dialog } from 'react-native-paper';
-import { Link, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { BorderRadius, Shadows, Spacing } from '@/constants/theme';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { authService } from '@/services/auth.service';
-import { Spacing } from '@/constants/theme';
-import { isValidEmail } from '@/utils/validation';
+import type { Role, User } from '@/types';
 import { TEST_CREDENTIALS, type TestCredentialKey } from '@/utils/test-credentials';
+import { isValidEmail } from '@/utils/validation';
+import { Link, useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Button, Chip, Dialog, Portal, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+const logo = require('../../assets/images/logo_app.png');
 
 export default function LoginScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { signIn } = useAuthContext();
+  const enableTestLogin = process.env.EXPO_PUBLIC_ENABLE_TEST_LOGIN === 'true';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +28,11 @@ export default function LoginScreen() {
   const handleLogin = async (testEmail?: string, testPassword?: string) => {
     const loginEmail = testEmail || email;
     const loginPassword = testPassword || password;
+
+    const testAccount = Object.values(TEST_CREDENTIALS).find(
+      (credential) =>
+        credential.email === loginEmail && credential.password === loginPassword
+    );
 
     // Validation
     if (!loginEmail || !loginPassword) {
@@ -40,6 +49,24 @@ export default function LoginScreen() {
     setError('');
 
     try {
+      if (testAccount && enableTestLogin) {
+        const now = new Date().toISOString();
+        const mockUser: User = {
+          id: `test-${testAccount.role.toLowerCase()}`,
+          email: testAccount.email,
+          phone: '+0000000000',
+          firstName: testAccount.label,
+          lastName: 'Test',
+          role: testAccount.role as Role,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await signIn('test-access-token', 'test-refresh-token', mockUser);
+        router.replace('/(main)/dashboard');
+        return;
+      }
+
       const response = await authService.login({ email: loginEmail, password: loginPassword });
       await signIn(response.accessToken, response.refreshToken, response.user);
       router.replace('/(main)/dashboard');
@@ -56,6 +83,13 @@ export default function LoginScreen() {
     handleLogin(credentials.email, credentials.password);
   };
 
+  const handleUseTestAccount = (credentialKey: TestCredentialKey) => {
+    const credentials = TEST_CREDENTIALS[credentialKey];
+    setEmail(credentials.email);
+    setPassword(credentials.password);
+    handleLogin(credentials.email, credentials.password);
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <KeyboardAvoidingView
@@ -64,9 +98,7 @@ export default function LoginScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
-            <Text variant="displaySmall" style={styles.title}>
-              MyDepot
-            </Text>
+            <Image source={logo} style={styles.logo} resizeMode="contain" />
             <Text variant="titleMedium" style={styles.subtitle}>
               Gestion de dépôt de boissons
             </Text>
@@ -75,19 +107,43 @@ export default function LoginScreen() {
             </Text>
           </View>
 
-          {/* Test Accounts Section */}
-          <View style={styles.testAccountsSection}>
-            <Button
-              mode="outlined"
-              icon="test-tube"
-              onPress={() => setShowTestDialog(true)}
-              style={styles.testButton}
-            >
-              Connexion test
-            </Button>
-          </View>
+          {enableTestLogin && (
+            <View style={styles.testAccountsSection}>
+              <Text variant="bodySmall" style={styles.testHint}>
+                Accès rapide aux interfaces par rôle
+              </Text>
+              <Button
+                mode="outlined"
+                icon="test-tube"
+                onPress={() => setShowTestDialog(true)}
+                style={styles.testButton}
+              >
+                Connexion test
+              </Button>
+              <View style={styles.testQuickList}>
+                {Object.entries(TEST_CREDENTIALS).map(([key, cred]) => (
+                  <Chip
+                    key={key}
+                    mode="outlined"
+                    onPress={() => handleUseTestAccount(key as TestCredentialKey)}
+                    style={styles.testChip}
+                  >
+                    {cred.label}
+                  </Chip>
+                ))}
+              </View>
+            </View>
+          )}
 
-          <View style={styles.form}>
+          <View
+            style={[
+              styles.form,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.outline,
+              },
+            ]}
+          >
             <TextInput
               label="Email"
               value={email}
@@ -215,6 +271,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.xxl,
   },
+  logo: {
+    width: 120,
+    height: 120,
+    marginBottom: Spacing.md,
+  },
   title: {
     fontWeight: 'bold',
     marginBottom: Spacing.sm,
@@ -230,11 +291,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.lg,
   },
+  testHint: {
+    opacity: 0.7,
+    marginBottom: Spacing.xs,
+  },
   testButton: {
     borderStyle: 'dashed',
   },
+  testQuickList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginTop: Spacing.sm,
+  },
   form: {
     width: '100%',
+    borderWidth: 1,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    ...Shadows.small,
   },
   input: {
     marginBottom: Spacing.md,
@@ -254,7 +329,7 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#CBD5E1',
   },
   dividerText: {
     marginHorizontal: Spacing.md,
@@ -273,5 +348,6 @@ const styles = StyleSheet.create({
   },
   testChip: {
     marginBottom: Spacing.sm,
+    marginHorizontal: Spacing.xs,
   },
 });

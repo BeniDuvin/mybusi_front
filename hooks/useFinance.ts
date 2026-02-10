@@ -1,19 +1,25 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  expenseService,
-  financeService,
-  salaryService,
+    expenseService,
+    financeService,
+    salaryService,
 } from '@/services/finance.service';
 import type { CreateExpenseRequest, CreateSalaryRequest } from '@/types';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-export const useFinanceSummary = (params?: {
-  depotId?: string;
-  startDate?: string;
-  endDate?: string;
-}) => {
+export const useFinanceSummary = (
+  params?: {
+    depotId?: string;
+    startDate?: string;
+    endDate?: string;
+  },
+  options?: {
+    enabled?: boolean;
+  }
+) => {
   return useQuery({
     queryKey: ['finance', 'summary', params],
     queryFn: () => financeService.getSummary(params),
+    enabled: options?.enabled !== false,
   });
 };
 
@@ -28,10 +34,11 @@ export const useCashFlow = (params?: {
   });
 };
 
-export const useFinanceDashboard = (depotId?: string) => {
+export const useFinanceDashboard = (params?: { depotId?: string; enabled?: boolean }) => {
   return useQuery({
-    queryKey: ['finance', 'dashboard', depotId],
-    queryFn: () => financeService.getDashboard(depotId),
+    queryKey: ['finance', 'dashboard', params?.depotId],
+    queryFn: () => financeService.getDashboard(params?.depotId),
+    enabled: params?.enabled !== false,
   });
 };
 
@@ -57,6 +64,20 @@ export const useCreateExpense = () => {
     mutationFn: (data: CreateExpenseRequest) => expenseService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
+    },
+  });
+};
+
+export const useUpdateExpense = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<CreateExpenseRequest> }) =>
+      expenseService.update(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['expenses', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['finance'] });
     },
   });
@@ -96,6 +117,20 @@ export const useCreateSalary = () => {
     mutationFn: (data: CreateSalaryRequest) => salaryService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['salaries'] });
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
+    },
+  });
+};
+
+export const useUpdateSalary = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<CreateSalaryRequest> }) =>
+      salaryService.update(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['salaries'] });
+      queryClient.invalidateQueries({ queryKey: ['salaries', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['finance'] });
     },
   });

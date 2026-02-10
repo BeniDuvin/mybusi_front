@@ -1,11 +1,11 @@
-import { api } from './api';
 import type {
-  CreatePurchaseRequest,
-  CreateSupplierRequest,
-  PaginatedResponse,
-  Purchase,
-  Supplier,
+    CreatePurchaseRequest,
+    CreateSupplierRequest,
+    PaginatedResponse,
+    Purchase,
+    Supplier,
 } from '@/types';
+import { api } from './api';
 
 export const purchaseService = {
   async getAll(params?: {
@@ -14,6 +14,7 @@ export const purchaseService = {
     depotId?: string;
     supplierId?: string;
     status?: string;
+    search?: string;
   }): Promise<PaginatedResponse<Purchase>> {
     const response = await api.get<PaginatedResponse<Purchase>>('/purchases', { params });
     return response.data;

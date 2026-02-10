@@ -79,6 +79,7 @@ export interface Product {
   name: string;
   barcode?: string;
   sku: string;
+  imageUrl?: string;
   categoryId: string;
   category?: Category;
   brandId: string;
@@ -88,6 +89,18 @@ export interface Product {
   purchasePrice: number;
   sellingPrice: number;
   minStock: number;
+  quantity?: number;
+  currentStock?: number;
+  stockQuantity?: number;
+  stock?: {
+    quantity?: number;
+  };
+  stocks?: {
+    id: string;
+    productId: string;
+    depotId: string;
+    quantity: number;
+  }[];
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -97,6 +110,7 @@ export interface CreateProductRequest {
   name: string;
   barcode?: string;
   sku: string;
+  imageUrl?: string;
   categoryId: string;
   brandId: string;
   depotId: string;

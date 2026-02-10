@@ -76,6 +76,65 @@ Application mobile React Native développée avec Expo pour la gestion complète
 - [x] Log Service
 - [x] Invoice Service
 
+## 📌 Référence API frontend (à copier)
+
+### Auth
+- Tous les endpoints (sauf auth) exigent `Authorization: Bearer <token>`.
+- OTP téléphone: `POST /auth/otp/send` puis `POST /auth/otp/verify` (expire en 5 minutes).
+- Login refusé si `isActive = false`.
+- Register: `firstName`, `lastName` obligatoires.
+
+### Dépôts
+- ADMIN uniquement: CRUD dépôts + assignation users.
+- `depotId` est la clé pour produits, stock, ventes, achats.
+
+### Produits
+- Création requiert: `name`, `categoryId`, `depotId`, `purchasePrice`, `sellingPrice`.
+- `barcode` et `sku` sont uniques (peuvent être `null`).
+- Le stock est créé à `0` automatiquement.
+- `depotId` requis à la création, non modifiable ensuite.
+
+### Stock
+- Stock par dépôt: combinaison `productId + depotId`.
+- `POST /stock/add` → + quantité.
+- `POST /stock/remove` → - quantité (refus si insuffisant).
+- `POST /stock/adjust` → fixe la quantité.
+- Chaque mouvement crée un `StockMovement` (IN/OUT/ADJUSTMENT).
+
+### Ventes
+- `POST /sales` exige `depotId + lines[]`.
+- Chaque ligne: `productId`, `quantity`, `unitPrice` optionnel.
+- Vérifie stock avant vente, refuse si insuffisant.
+- Vente ⇒ décrémente stock + crée `StockMovement` OUT.
+- Paiements mettent à jour `remainingAmount` et le status devient `COMPLETED` quand `remainingAmount = 0`.
+- `POST /sales/:id/cancel` restaure le stock.
+
+### Achats
+- `POST /purchases` exige `depotId`, `supplierId`, `lines[]`.
+- Chaque ligne: `productId`, `quantity`, `unitPrice`.
+- Achat ⇒ incrémente stock + `StockMovement` IN.
+- Paiement achat met à jour `remainingAmount` et `supplier.totalDebt`.
+
+### Paiements
+- Paiement lié à `saleId` ou `clientId`.
+- `amount` ne peut pas dépasser `remainingAmount`.
+- `MOBILE_MONEY` reste `PENDING` jusqu’à vérification.
+- `CASH` = `COMPLETED` direct.
+
+### Clients / Fournisseurs
+- `phone` unique, `email` unique si fourni.
+- `totalDebt` géré par achats/paiements.
+
+### Factures
+- `GET /invoices/generate/:saleId?format=A4` (si déjà générée, on renvoie l’existante).
+- `GET /invoices/:invoiceNumber` pour télécharger.
+
+### Règles côté frontend (essentiel)
+- Toujours envoyer le bon `depotId` pour stocks, ventes, achats, produits.
+- Après achat/vente, rafraîchir stock via `GET /stock/depot/:depotId` ou produits.
+- Vérifier stock côté UI avant vente pour éviter `400`.
+- Utiliser les enums exacts (`PaymentStatus`, `PaymentMethod`, `MobileMoneyProvider`, `Role`).
+
 ### ✅ Hooks Custom
 - [x] useAuth - Authentification
 - [x] useProducts - Gestion produits

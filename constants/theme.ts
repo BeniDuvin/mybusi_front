@@ -1,23 +1,26 @@
-import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 import type { MD3Theme } from 'react-native-paper';
+import { MD3DarkTheme, MD3LightTheme } from 'react-native-paper';
 
 // Colors
 export const AppColors = {
-  primary: '#2196F3',
-  primaryDark: '#1976D2',
-  secondary: '#4CAF50',
-  secondaryDark: '#388E3C',
-  accent: '#FF9800',
-  error: '#F44336',
-  warning: '#FF9800',
-  info: '#2196F3',
-  success: '#4CAF50',
-  background: '#F5F5F5',
+  primary: '#FF385C',
+  primaryDark: '#D90B3E',
+  secondary: '#FFB400',
+  secondaryDark: '#D99A00',
+  accent: '#FFB400',
+  error: '#C13515',
+  warning: '#FFA800',
+  info: '#1D4ED8',
+  success: '#008A05',
+  background: '#FFFFFF',
   surface: '#FFFFFF',
-  text: '#212121',
-  textSecondary: '#757575',
-  border: '#E0E0E0',
-  disabled: '#BDBDBD',
+  surfaceAlt: '#F7F7F7',
+  text: '#222222',
+  textSecondary: '#717171',
+  textTertiary: '#B0B0B0',
+  border: '#DDDDDD',
+  borderLight: '#EBEBEB',
+  disabled: '#B0B0B0',
 };
 
 // Light Theme
@@ -31,10 +34,14 @@ export const lightTheme: MD3Theme = {
     error: AppColors.error,
     background: AppColors.background,
     surface: AppColors.surface,
+    surfaceVariant: AppColors.surfaceAlt,
+    outline: AppColors.border,
+    outlineVariant: AppColors.borderLight,
     onPrimary: '#FFFFFF',
     onSecondary: '#FFFFFF',
     onBackground: AppColors.text,
     onSurface: AppColors.text,
+    onSurfaceVariant: AppColors.textSecondary,
   },
 };
 
@@ -43,10 +50,18 @@ export const darkTheme: MD3Theme = {
   ...MD3DarkTheme,
   colors: {
     ...MD3DarkTheme.colors,
-    primary: '#64B5F6',
-    secondary: '#81C784',
-    tertiary: '#FFB74D',
-    error: '#EF5350',
+    primary: '#FF6B86',
+    secondary: '#FFD166',
+    tertiary: '#FFB400',
+    error: '#E56B4C',
+    background: '#0B0B0B',
+    surface: '#141414',
+    surfaceVariant: '#1F1F1F',
+    outline: '#2B2B2B',
+    outlineVariant: '#2F2F2F',
+    onBackground: '#F7F7F7',
+    onSurface: '#F7F7F7',
+    onSurfaceVariant: '#C9C9C9',
   },
 };
 
@@ -57,16 +72,16 @@ export const Spacing = {
   md: 16,
   lg: 24,
   xl: 32,
-  xxl: 48,
+  xxl: 40,
 };
 
 // Border Radius
 export const BorderRadius = {
-  sm: 4,
-  md: 8,
+  sm: 8,
+  md: 10,
   lg: 12,
-  xl: 16,
-  round: 50,
+  xl: 20,
+  round: 999,
 };
 
 // Shadows
@@ -81,15 +96,15 @@ export const Shadows = {
   medium: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 4,
   },
   large: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
     elevation: 8,
   },
 };

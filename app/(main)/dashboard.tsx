@@ -1,28 +1,118 @@
-import React from 'react';
-import { StyleSheet, View, ScrollView, RefreshControl } from 'react-native';
-import { useTheme, FAB, Text } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useFinanceDashboard } from '@/hooks/useFinance';
+import { ErrorMessage } from '@/components/ui/ErrorMessage';
+import { KPICard } from '@/components/ui/KPICard';
+import { BorderRadius, Shadows, Spacing } from '@/constants/theme';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useFinanceDashboard, useFinanceSummary } from '@/hooks/useFinance';
+import { useSales } from '@/hooks/useSales';
+import { usePurchases } from '@/hooks/usePurchases';
+import { useDepots } from '@/hooks/useDepots';
 import { useLowStockProducts } from '@/hooks/useProducts';
 import { useAppStore } from '@/stores/app.store';
-import { KPICard } from '@/components/ui/KPICard';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { ErrorMessage } from '@/components/ui/ErrorMessage';
-import { Spacing } from '@/constants/theme';
 import { formatCurrency } from '@/utils/format';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Dimensions, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Card, FAB, SegmentedButtons, Text, useTheme } from 'react-native-paper';
+import { Picker } from '@react-native-picker/picker';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import { useQuery } from '@tanstack/react-query';
+import { stockService } from '@/services/stock.service';
 
 export default function DashboardScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { selectedDepotId } = useAppStore();
+  const { selectedDepotId, setSelectedDepotId } = useAppStore();
+  const { hasRole } = useAuthContext();
+  const canViewFinance = hasRole(['ADMIN', 'GERANT']);
+  const [statsTab, setStatsTab] = useState<'sales' | 'purchases'>('sales');
+
+  const toNumber = (value: unknown) => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : 0;
+  };
+
+  const getCurrentStock = (product: {
+    quantity?: number;
+    currentStock?: number;
+    stockQuantity?: number;
+    stock?: { quantity?: number };
+    stocks?: { depotId: string; quantity: number }[];
+  }) => {
+    const stockFromArray = selectedDepotId
+      ? product.stocks?.find((stock) => stock.depotId === selectedDepotId)?.quantity
+      : product.stocks?.[0]?.quantity;
+    return (
+      stockFromArray ??
+      product.quantity ??
+      product.currentStock ??
+      product.stockQuantity ??
+      product.stock?.quantity ??
+      0
+    );
+  };
 
   const {
     data: dashboardData,
     isLoading: isDashboardLoading,
     error: dashboardError,
     refetch: refetchDashboard,
-  } = useFinanceDashboard(selectedDepotId || undefined);
+  } = useFinanceDashboard({
+    depotId: selectedDepotId || undefined,
+    enabled: canViewFinance,
+  });
+
+  const { todayParams, monthParams } = useMemo(() => {
+    const now = new Date();
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(now);
+    endOfDay.setHours(23, 59, 59, 999);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    return {
+      todayParams: {
+        depotId: selectedDepotId || undefined,
+        startDate: startOfDay.toISOString(),
+        endDate: endOfDay.toISOString(),
+      },
+      monthParams: {
+        depotId: selectedDepotId || undefined,
+        startDate: startOfMonth.toISOString(),
+        endDate: endOfDay.toISOString(),
+      },
+    };
+  }, [selectedDepotId]);
+
+  const {
+    data: todaySummary,
+    isLoading: isTodaySummaryLoading,
+    refetch: refetchTodaySummary,
+  } = useFinanceSummary(todayParams, { enabled: canViewFinance });
+
+  const {
+    data: monthSummary,
+    isLoading: isMonthSummaryLoading,
+    refetch: refetchMonthSummary,
+  } = useFinanceSummary(monthParams, { enabled: canViewFinance });
+
+  const {
+    data: purchasesData,
+    isLoading: isPurchasesLoading,
+    refetch: refetchPurchases,
+  } = usePurchases({
+    depotId: selectedDepotId || undefined,
+    limit: 500,
+  });
+
+  const {
+    data: salesData,
+    isLoading: isSalesLoading,
+    refetch: refetchSales,
+  } = useSales({
+    depotId: selectedDepotId || undefined,
+    limit: 500,
+  });
 
   const {
     data: lowStockProducts,
@@ -30,20 +120,230 @@ export default function DashboardScreen() {
     refetch: refetchLowStock,
   } = useLowStockProducts(selectedDepotId || undefined);
 
+  const { data: depots } = useDepots();
+
+  const { data: stockData, refetch: refetchStock } = useQuery({
+    queryKey: ['stock', 'depot', selectedDepotId],
+    queryFn: () => stockService.getByDepot(selectedDepotId as string, { limit: 1000 }),
+    enabled: !!selectedDepotId,
+  });
+
+  const stockByProductId = useMemo(() => {
+    const map = new Map<string, number>();
+    stockData?.data?.forEach((stock) => {
+      map.set(stock.productId, stock.quantity ?? 0);
+    });
+    return map;
+  }, [stockData?.data]);
+
   const [refreshing, setRefreshing] = React.useState(false);
+  const chartWidth = Dimensions.get('window').width - Spacing.md * 2;
+  const safeDashboard = {
+    todaySales: toNumber(dashboardData?.todaySales),
+    todayRevenue: toNumber(dashboardData?.todayRevenue),
+    monthSales: toNumber(dashboardData?.monthSales),
+    monthRevenue: toNumber(dashboardData?.monthRevenue),
+    lowStockCount: toNumber(dashboardData?.lowStockCount),
+    pendingOrdersCount: toNumber(dashboardData?.pendingOrdersCount),
+  };
+
+  const getValueOrFallback = (value: unknown, fallback: number) => {
+    return value === null || value === undefined ? fallback : toNumber(value);
+  };
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchDashboard(), refetchLowStock()]);
+    await Promise.all([
+      refetchDashboard(),
+      refetchLowStock(),
+      refetchStock(),
+      refetchTodaySummary(),
+      refetchMonthSummary(),
+      refetchPurchases(),
+      refetchSales(),
+    ]);
     setRefreshing(false);
-  }, []);
+  }, [
+    refetchDashboard,
+    refetchLowStock,
+    refetchStock,
+    refetchTodaySummary,
+    refetchMonthSummary,
+    refetchPurchases,
+    refetchSales,
+  ]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (canViewFinance) {
+        refetchDashboard();
+        refetchTodaySummary();
+        refetchMonthSummary();
+        refetchPurchases();
+        refetchSales();
+      }
+      refetchLowStock();
+      refetchStock();
+    }, [
+      canViewFinance,
+      refetchDashboard,
+      refetchTodaySummary,
+      refetchMonthSummary,
+      refetchPurchases,
+      refetchSales,
+      refetchLowStock,
+      refetchStock,
+    ])
+  );
+
+  const getPurchaseTotal = (purchase: (typeof purchasesData)['data'][number]) => {
+    const total = toNumber(purchase?.total);
+    if (total > 0) return total;
+    return (purchase?.lines || []).reduce(
+      (sum, line) => sum + toNumber(line.quantity) * toNumber(line.unitPrice),
+      0
+    );
+  };
+
+  const purchaseStats = useMemo(() => {
+    const data = purchasesData?.data || [];
+    if (data.length === 0) {
+      return { todayCount: 0, monthCount: 0, todayAmount: 0, monthAmount: 0 };
+    }
+    const todayStart = new Date(todayParams.startDate).getTime();
+    const todayEnd = new Date(todayParams.endDate).getTime();
+    const monthStart = new Date(monthParams.startDate).getTime();
+    const monthEnd = new Date(monthParams.endDate).getTime();
+
+    let todayCount = 0;
+    let monthCount = 0;
+    let todayAmount = 0;
+    let monthAmount = 0;
+
+    data.forEach((purchase) => {
+      const createdAt = new Date(purchase.createdAt).getTime();
+      const total = getPurchaseTotal(purchase);
+      if (createdAt >= todayStart && createdAt <= todayEnd) {
+        todayCount += 1;
+        todayAmount += total;
+      }
+      if (createdAt >= monthStart && createdAt <= monthEnd) {
+        monthCount += 1;
+        monthAmount += total;
+      }
+    });
+
+    return { todayCount, monthCount, todayAmount, monthAmount };
+  }, [
+    purchasesData?.data,
+    todayParams.startDate,
+    todayParams.endDate,
+    monthParams.startDate,
+    monthParams.endDate,
+  ]);
+
+  const getSaleTotal = (sale: (typeof salesData)['data'][number]) => {
+    const total = toNumber(sale?.total);
+    if (total > 0) return total;
+    const subtotal = (sale?.lines || []).reduce((sum, line) => {
+      const lineTotal = toNumber(line.total);
+      if (lineTotal > 0) return sum + lineTotal;
+      return sum + toNumber(line.quantity) * toNumber(line.unitPrice) - toNumber(line.discount);
+    }, 0);
+    return subtotal - toNumber(sale?.discount) + toNumber(sale?.tax);
+  };
+
+  const salesStats = useMemo(() => {
+    const data = salesData?.data || [];
+    if (data.length === 0) {
+      return { todayCount: 0, monthCount: 0, todayAmount: 0, monthAmount: 0 };
+    }
+    const todayStart = new Date(todayParams.startDate).getTime();
+    const todayEnd = new Date(todayParams.endDate).getTime();
+    const monthStart = new Date(monthParams.startDate).getTime();
+    const monthEnd = new Date(monthParams.endDate).getTime();
+
+    let todayCount = 0;
+    let monthCount = 0;
+    let todayAmount = 0;
+    let monthAmount = 0;
+
+    data.forEach((sale) => {
+      const createdAt = new Date(sale.createdAt).getTime();
+      const total = getSaleTotal(sale);
+      if (createdAt >= todayStart && createdAt <= todayEnd) {
+        todayCount += 1;
+        todayAmount += total;
+      }
+      if (createdAt >= monthStart && createdAt <= monthEnd) {
+        monthCount += 1;
+        monthAmount += total;
+      }
+    });
+
+    return { todayCount, monthCount, todayAmount, monthAmount };
+  }, [
+    salesData?.data,
+    todayParams.startDate,
+    todayParams.endDate,
+    monthParams.startDate,
+    monthParams.endDate,
+  ]);
+
+  const todaySalesValue = getValueOrFallback(dashboardData?.todaySales, salesStats.todayCount);
+  const monthSalesValue = getValueOrFallback(dashboardData?.monthSales, salesStats.monthCount);
+  const todayRevenueValue = getValueOrFallback(
+    dashboardData?.todayRevenue,
+    salesStats.todayAmount
+  );
+  const monthRevenueValue = getValueOrFallback(
+    dashboardData?.monthRevenue,
+    salesStats.monthAmount
+  );
+  const todayPurchaseAmount = getValueOrFallback(
+    todaySummary?.totalPurchases,
+    purchaseStats.todayAmount
+  );
+  const monthPurchaseAmount = getValueOrFallback(
+    monthSummary?.totalPurchases,
+    purchaseStats.monthAmount
+  );
+
+  const chartData = statsTab === 'sales'
+    ? [
+        {
+          label: 'Auj',
+          value: todayRevenueValue,
+        },
+        {
+          label: 'Mois',
+          value: monthRevenueValue,
+        },
+      ]
+    : [
+        {
+          label: 'Auj',
+          value: todayPurchaseAmount,
+        },
+        {
+          label: 'Mois',
+          value: monthPurchaseAmount,
+        },
+      ];
+  const maxChartValue = Math.max(...chartData.map((item) => item.value), 1);
+  const chartHeight = 140;
 
   if (dashboardError) {
+    const status = (dashboardError as any)?.response?.status;
     return (
       <SafeAreaView style={styles.container}>
         <ErrorMessage
-          message={dashboardError?.message || 'Erreur lors du chargement du tableau de bord'}
-          onRetry={refetchDashboard}
+          message={
+            status === 403
+              ? "Accès interdit: vous n'avez pas les permissions pour la finance."
+              : dashboardError?.message || 'Erreur lors du chargement du tableau de bord'
+          }
+          onRetry={status === 403 ? undefined : refetchDashboard}
         />
       </SafeAreaView>
     );
@@ -59,59 +359,207 @@ export default function DashboardScreen() {
           Vue d'ensemble
         </Text>
 
+        <View style={styles.filtersRow}>
+          <View style={styles.filterItem}>
+            <Text variant="bodySmall" style={styles.filterLabel}>
+              Dépôt
+            </Text>
+            <Picker
+              selectedValue={selectedDepotId || ''}
+              onValueChange={(value) => setSelectedDepotId(value || null)}
+              style={styles.filterPicker}
+              itemStyle={styles.filterPickerItem}
+            >
+              <Picker.Item label="Tous" value="" />
+              {depots?.data?.map((depot) => (
+                <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
+              ))}
+            </Picker>
+          </View>
+        </View>
+
         <View style={styles.kpiGrid}>
           <View style={styles.kpiRow}>
-            <KPICard
-              title="Ventes du jour"
-              value={dashboardData?.todaySales || 0}
-              icon="cart"
-              iconColor={theme.colors.primary}
-              subtitle={formatCurrency(dashboardData?.todayRevenue || 0)}
-            />
-            <KPICard
-              title="Ventes du mois"
-              value={dashboardData?.monthSales || 0}
-              icon="chart.bar"
-              iconColor={theme.colors.secondary}
-              subtitle={formatCurrency(dashboardData?.monthRevenue || 0)}
-            />
+            {statsTab === 'sales' ? (
+              <>
+                <KPICard
+                  title="Ventes du jour"
+                  value={canViewFinance ? todaySalesValue : '—'}
+                  icon="cart"
+                  iconColor={theme.colors.primary}
+                  subtitle={
+                    canViewFinance ? formatCurrency(todayRevenueValue) : 'Accès limité'
+                  }
+                />
+                <KPICard
+                  title="Ventes du mois"
+                  value={canViewFinance ? monthSalesValue : '—'}
+                  icon="chart-bar"
+                  iconColor={theme.colors.secondary}
+                  subtitle={
+                    canViewFinance ? formatCurrency(monthRevenueValue) : 'Accès limité'
+                  }
+                />
+              </>
+            ) : (
+              <>
+                <KPICard
+                  title="Achats du jour"
+                  value={canViewFinance ? purchaseStats.todayCount : '—'}
+                  icon="truck-outline"
+                  iconColor={theme.colors.primary}
+                  subtitle={
+                    canViewFinance ? formatCurrency(todayPurchaseAmount) : 'Accès limité'
+                  }
+                />
+                <KPICard
+                  title="Achats du mois"
+                  value={canViewFinance ? purchaseStats.monthCount : '—'}
+                  icon="warehouse"
+                  iconColor={theme.colors.secondary}
+                  subtitle={
+                    canViewFinance ? formatCurrency(monthPurchaseAmount) : 'Accès limité'
+                  }
+                />
+              </>
+            )}
           </View>
 
           <View style={styles.kpiRow}>
             <KPICard
               title="Stock faible"
-              value={dashboardData?.lowStockCount || 0}
-              icon="exclamationmark.triangle"
+              value={lowStockProducts?.length ?? safeDashboard.lowStockCount}
+              icon="alert-circle"
               iconColor={theme.colors.error}
               subtitle="Produits en alerte"
               onPress={() => router.push('/products?tab=low-stock')}
             />
             <KPICard
               title="Commandes en attente"
-              value={dashboardData?.pendingOrdersCount || 0}
-              icon="clock"
+              value={canViewFinance ? safeDashboard.pendingOrdersCount : '—'}
+              icon="clock-outline"
               iconColor="#FF9800"
-              subtitle="À traiter"
+              subtitle={canViewFinance ? 'À traiter' : 'Accès limité'}
             />
           </View>
         </View>
 
-        {lowStockProducts && lowStockProducts.length > 0 && (
+        <View style={styles.sectionHeader}>
+          <MaterialCommunityIcons name="chart-line" size={18} color={theme.colors.primary} />
+          <Text variant="titleMedium" style={styles.sectionHeaderText}>
+            {statsTab === 'sales' ? 'Aperçu ventes' : 'Aperçu achats'}
+          </Text>
+        </View>
+
+        <SegmentedButtons
+          value={statsTab}
+          onValueChange={(value) => setStatsTab(value as 'sales' | 'purchases')}
+          buttons={[
+            { value: 'sales', label: 'Ventes', icon: 'cart' },
+            { value: 'purchases', label: 'Achats', icon: 'truck-outline' },
+          ]}
+          style={styles.segmented}
+        />
+
+        {canViewFinance ? (
+          <Card style={styles.chartCard}>
+            <Card.Content>
+              {isDashboardLoading ||
+              isTodaySummaryLoading ||
+              isMonthSummaryLoading ||
+              isPurchasesLoading ||
+              isSalesLoading ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator />
+                  <Text variant="bodyMedium" style={styles.loadingText}>
+                    Chargement des stats...
+                  </Text>
+                </View>
+              ) : (
+                <View style={[styles.barChart, { width: chartWidth, height: chartHeight }]}>
+                  {chartData.map((item) => (
+                    <View key={item.label} style={styles.barItem}>
+                      <View
+                        style={[
+                          styles.bar,
+                          {
+                            height: Math.max((item.value / maxChartValue) * chartHeight, 4),
+                            backgroundColor: theme.colors.primary,
+                          },
+                        ]}
+                      />
+                      <Text variant="labelSmall" style={styles.barLabel}>
+                        {item.label}
+                      </Text>
+                      <Text variant="labelSmall" style={styles.barValue}>
+                        {formatCurrency(item.value)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </Card.Content>
+          </Card>
+        ) : (
+          <Card style={styles.chartCard}>
+            <Card.Content>
+              <Text variant="bodyMedium" style={styles.mutedText}>
+                Accès limité aux statistiques financières.
+              </Text>
+            </Card.Content>
+          </Card>
+        )}
+
+        <View style={styles.sectionHeader}>
+          <MaterialCommunityIcons name="alert" size={18} color={theme.colors.error} />
+          <Text variant="titleMedium" style={styles.sectionHeaderText}>
+            Alertes stock
+          </Text>
+        </View>
+
+        {isLowStockLoading ? (
+          <Card style={styles.alertCard}>
+            <Card.Content style={styles.loadingRow}>
+              <ActivityIndicator />
+              <Text variant="bodyMedium" style={styles.loadingText}>
+                Chargement des alertes...
+              </Text>
+            </Card.Content>
+          </Card>
+        ) : lowStockProducts && lowStockProducts.length > 0 ? (
           <View style={styles.alertSection}>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              ⚠️ Alertes stock
-            </Text>
-            {lowStockProducts.slice(0, 5).map((product) => (
-              <View key={product.id} style={styles.alertItem}>
+            {lowStockProducts.slice(0, 5).map((product) => {
+              const stockValue =
+                stockByProductId.get(product.id) ?? getCurrentStock(product) ?? 0;
+              return (
+              <View
+                key={product.id}
+                style={[
+                  styles.alertItem,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.outline,
+                  },
+                ]}
+              >
                 <Text variant="bodyMedium" style={styles.productName}>
                   {product.name}
                 </Text>
                 <Text variant="bodySmall" style={{ color: theme.colors.error }}>
-                  Stock: {product.minStock} (Seuil: {product.minStock})
+                  Stock: {stockValue} (Seuil: {product.minStock})
                 </Text>
               </View>
-            ))}
+              );
+            })}
           </View>
+        ) : (
+          <Card style={styles.alertCard}>
+            <Card.Content>
+              <Text variant="bodyMedium" style={styles.mutedText}>
+                Aucune alerte de stock pour le moment.
+              </Text>
+            </Card.Content>
+          </Card>
         )}
       </ScrollView>
 
@@ -137,6 +585,42 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.md,
     fontWeight: 'bold',
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
+  sectionHeaderText: {
+    marginLeft: Spacing.sm,
+    fontWeight: 'bold',
+  },
+  segmented: {
+    marginBottom: Spacing.md,
+  },
+  filtersRow: {
+    marginBottom: Spacing.md,
+  },
+  filterItem: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    borderColor: 'transparent',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: Spacing.xs,
+    paddingTop: Spacing.xs,
+  },
+  filterLabel: {
+    marginLeft: Spacing.xs,
+    opacity: 0.7,
+  },
+  filterPicker: {
+    height: 36,
+  },
+  filterPickerItem: {
+    height: 36,
+    fontSize: 12,
+  },
   kpiGrid: {
     marginBottom: Spacing.lg,
   },
@@ -147,15 +631,63 @@ const styles = StyleSheet.create({
   alertSection: {
     marginTop: Spacing.lg,
   },
+  chartCard: {
+    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
+    borderColor: 'transparent',
+    marginBottom: Spacing.md,
+    ...Shadows.small,
+  },
+  alertCard: {
+    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
+    borderColor: 'transparent',
+    marginBottom: Spacing.md,
+    ...Shadows.small,
+  },
   alertItem: {
     padding: Spacing.md,
-    backgroundColor: '#FFF3E0',
-    borderRadius: 8,
+    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
     marginBottom: Spacing.sm,
+    ...Shadows.small,
   },
   productName: {
     fontWeight: 'bold',
     marginBottom: Spacing.xs,
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginLeft: Spacing.sm,
+    opacity: 0.8,
+  },
+  mutedText: {
+    opacity: 0.7,
+  },
+  barChart: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-around',
+  },
+  barItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  bar: {
+    width: 28,
+    borderRadius: 8,
+  },
+  barLabel: {
+    marginTop: Spacing.xs,
+    opacity: 0.7,
+  },
+  barValue: {
+    marginTop: 2,
+    fontSize: 10,
+    opacity: 0.8,
   },
   fab: {
     position: 'absolute',

@@ -1,47 +1,125 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, FlatList } from 'react-native';
-import {
-  Card,
-  Text,
-  FAB,
-  useTheme,
-  Chip,
-  Menu,
-  IconButton,
-  Portal,
-  Dialog,
-  Button,
-} from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useProducts, useDeleteProduct } from '@/hooks/useProducts';
-import { useAppStore } from '@/stores/app.store';
-import { SearchBar } from '@/components/ui/SearchBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
+import { SearchBar } from '@/components/ui/SearchBar';
 import { Spacing } from '@/constants/theme';
-import { formatCurrency } from '@/utils/format';
+import { useDeleteProduct, useProducts, useCategories } from '@/hooks/useProducts';
+import { useSuppliers } from '@/hooks/usePurchases';
+import { useDepots } from '@/hooks/useDepots';
+import { useAppStore } from '@/stores/app.store';
 import type { Product } from '@/types';
+import { formatCurrency } from '@/utils/format';
+import { useRouter } from 'expo-router';
+import React, { useMemo, useState } from 'react';
+import { FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useQuery } from '@tanstack/react-query';
+import { stockService } from '@/services/stock.service';
+import { Picker } from '@react-native-picker/picker';
+import {
+    Button,
+    Card,
+    Chip,
+    Dialog,
+    FAB,
+    IconButton,
+    Menu,
+    Portal,
+    Snackbar,
+    Text,
+    useTheme,
+} from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProductsListScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { selectedDepotId } = useAppStore();
+  const { selectedDepotId, setSelectedDepotId } = useAppStore();
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [categoryId, setCategoryId] = useState('');
+  const [supplierId, setSupplierId] = useState('');
+  const [depotId, setDepotId] = useState(selectedDepotId || '');
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [deleteError, setDeleteError] = useState('');
 
-  const { data, isLoading, error, refetch } = useProducts({
-    page,
-    limit: 20,
-    search,
-    depotId: selectedDepotId || undefined,
-  });
+  const { data: categories } = useCategories();
+  const { data: suppliers } = useSuppliers();
+  const { data: depots } = useDepots();
+
+  const { data, isLoading, error, refetch } = useProducts(
+    {
+      page,
+      limit: 20,
+      search,
+      categoryId: categoryId || undefined,
+      supplierId: supplierId || undefined,
+      depotId: depotId || selectedDepotId || undefined,
+    },
+    {
+      refetchInterval: 15000,
+      refetchOnWindowFocus: true,
+    }
+  );
 
   const deleteMutation = useDeleteProduct();
+
+  React.useEffect(() => {
+    if (!selectedDepotId && !depotId) {
+      const firstDepotId = data?.data?.find((product) => product.depotId)?.depotId;
+      if (firstDepotId) {
+        setSelectedDepotId(firstDepotId);
+        setDepotId(firstDepotId);
+      }
+    }
+  }, [selectedDepotId, depotId, data?.data, setSelectedDepotId]);
+
+  const { data: stockData, refetch: refetchStock } = useQuery({
+    queryKey: ['stock', 'depot', depotId || selectedDepotId],
+    queryFn: () => stockService.getByDepot((depotId || selectedDepotId) as string, { limit: 1000 }),
+    enabled: !!(depotId || selectedDepotId),
+  });
+
+  const stockByProductId = useMemo(() => {
+    const map = new Map<string, number>();
+    stockData?.data?.forEach((stock) => {
+      map.set(stock.productId, stock.quantity ?? 0);
+    });
+    return map;
+  }, [stockData?.data]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refetch();
+      refetchStock();
+    }, [refetch, refetchStock])
+  );
+
+  React.useEffect(() => {
+    if (depotId || selectedDepotId) {
+      refetch();
+      refetchStock();
+    }
+  }, [depotId, selectedDepotId, refetch, refetchStock]);
+
+  const getStock = (product: Product) => {
+    const activeDepotId = depotId || selectedDepotId;
+    const stockFromProduct = activeDepotId
+      ? product.stocks?.find((stock) => stock.depotId === activeDepotId)?.quantity
+      : undefined;
+
+    return (
+      stockByProductId.get(product.id) ??
+      stockFromProduct ??
+      product.quantity ??
+      product.currentStock ??
+      product.stockQuantity ??
+      product.stock?.quantity ??
+      0
+    );
+  };
 
   const handleDelete = async () => {
     if (!selectedProduct) return;
@@ -52,32 +130,109 @@ export default function ProductsListScreen() {
       setSelectedProduct(null);
       refetch();
     } catch (err) {
+      const status = (err as any)?.response?.status;
+      const serverMessage = (err as any)?.response?.data?.message;
+      const details = status ? ` (code ${status})` : '';
+      setDeleteError(
+        serverMessage
+          ? `${serverMessage}${details}`
+          : `Erreur lors de la suppression${details}`
+      );
       console.error('Delete error:', err);
     }
   };
 
-  const renderProduct = ({ item }: { item: Product }) => (
-    <Card style={styles.productCard} onPress={() => router.push(`/products/edit/${item.id}`)}>
+  const renderProduct = ({ item }: { item: Product }) => {
+    const stock = getStock(item);
+    const isLowStock = stock <= item.minStock;
+
+    return (
+    <Card style={[styles.productCard, { borderColor: theme.colors.outline }]}>
       <Card.Content>
-        <View style={styles.productHeader}>
-          <View style={styles.productInfo}>
-            <Text variant="titleMedium" style={styles.productName}>
-              {item.name}
-            </Text>
-            <Text variant="bodySmall" style={styles.productSku}>
-              SKU: {item.sku}
+        <Pressable
+          onPress={() => router.push(`/products/edit/${item.id}`)}
+          style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}
+        >
+          <View style={styles.imageWrapper}>
+            {item.imageUrl ? (
+              <Image source={{ uri: item.imageUrl }} style={styles.productImage} />
+            ) : (
+              <View style={[styles.imagePlaceholder, { backgroundColor: theme.colors.surfaceVariant }]}>
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                  Pas d'image
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.productHeader}>
+            <View style={styles.productInfo}>
+              <Text variant="titleMedium" style={styles.productName}>
+                {item.name}
+              </Text>
+              <Text variant="bodySmall" style={styles.productSku}>
+                SKU: {item.sku}
+              </Text>
+              <Text variant="bodySmall" style={styles.productMeta}>
+                Dépôt: {item.depot?.name || item.depotId}
+              </Text>
+            </View>
+            <Chip
+              icon={item.isActive ? 'check-circle' : 'close-circle'}
+              style={[
+                styles.statusChip,
+                { backgroundColor: item.isActive ? theme.colors.primary : theme.colors.error },
+              ]}
+              textStyle={styles.statusText}
+            >
+              {item.isActive ? 'Actif' : 'Inactif'}
+            </Chip>
+          </View>
+
+          <View style={styles.stockRow}>
+            <Text
+              variant="bodySmall"
+              style={[styles.stockText, isLowStock && { color: theme.colors.error }]}
+            >
+              Stock: {stock} (Seuil: {item.minStock})
             </Text>
           </View>
 
+          <View style={styles.productDetails}>
+            <Chip icon="tag" style={styles.chip}>
+              {item.category?.name || 'Sans catégorie'}
+            </Chip>
+            <Chip icon="tag-outline" style={styles.chip}>
+              {item.brand?.name || 'Sans marque'}
+            </Chip>
+          </View>
+
+          <View style={styles.productPrices}>
+            <View>
+              <Text variant="bodySmall" style={styles.priceLabel}>
+                Achat
+              </Text>
+              <Text variant="titleSmall" style={styles.priceValue}>
+                {formatCurrency(item.purchasePrice)}
+              </Text>
+            </View>
+            <View>
+              <Text variant="bodySmall" style={styles.priceLabel}>
+                Vente
+              </Text>
+              <Text variant="titleSmall" style={[styles.priceValue, { color: theme.colors.primary }]}>
+                {formatCurrency(item.sellingPrice)}
+              </Text>
+            </View>
+          </View>
+
+        </Pressable>
+
+        <View style={styles.menuAnchor}>
           <Menu
             visible={menuVisible === item.id}
             onDismiss={() => setMenuVisible(null)}
-            anchor={
-              <IconButton
-                icon="dots-vertical"
-                onPress={() => setMenuVisible(item.id)}
-              />
-            }
+            anchor={<IconButton icon="dots-vertical" onPress={() => setMenuVisible(item.id)} />}
           >
             <Menu.Item
               onPress={() => {
@@ -98,43 +253,10 @@ export default function ProductsListScreen() {
             />
           </Menu>
         </View>
-
-        <View style={styles.productDetails}>
-          <Chip icon="tag" style={styles.chip}>
-            {item.category?.name || 'Sans catégorie'}
-          </Chip>
-          <Chip icon="tag-outline" style={styles.chip}>
-            {item.brand?.name || 'Sans marque'}
-          </Chip>
-        </View>
-
-        <View style={styles.productPrices}>
-          <View>
-            <Text variant="bodySmall" style={styles.priceLabel}>
-              Achat
-            </Text>
-            <Text variant="titleSmall" style={styles.priceValue}>
-              {formatCurrency(item.purchasePrice)}
-            </Text>
-          </View>
-          <View>
-            <Text variant="bodySmall" style={styles.priceLabel}>
-              Vente
-            </Text>
-            <Text variant="titleSmall" style={[styles.priceValue, { color: theme.colors.primary }]}>
-              {formatCurrency(item.sellingPrice)}
-            </Text>
-          </View>
-        </View>
-
-        {!item.isActive && (
-          <Chip icon="close-circle" style={styles.inactiveChip}>
-            Inactif
-          </Chip>
-        )}
       </Card.Content>
     </Card>
-  );
+    );
+  };
 
   if (error) {
     return (
@@ -151,11 +273,79 @@ export default function ProductsListScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <SearchBar placeholder="Rechercher un produit..." onSearch={setSearch} />
 
+      <View style={styles.filtersRow}>
+        <View style={styles.filterItem}>
+          <Text variant="bodySmall" style={styles.filterLabel}>
+            Catégorie
+          </Text>
+          <Picker
+            selectedValue={categoryId}
+            onValueChange={(value) => setCategoryId(value)}
+            style={styles.filterPicker}
+            itemStyle={styles.filterPickerItem}
+          >
+            <Picker.Item label="Toutes" value="" />
+            {categories?.map((category) => (
+              <Picker.Item key={category.id} label={category.name} value={category.id} />
+            ))}
+          </Picker>
+        </View>
+
+        <View style={styles.filterItem}>
+          <Text variant="bodySmall" style={styles.filterLabel}>
+            Dépôt
+          </Text>
+          <Picker
+            selectedValue={depotId || selectedDepotId || ''}
+            onValueChange={(value) => {
+              setDepotId(value);
+              setSelectedDepotId(value || null);
+            }}
+            style={styles.filterPicker}
+            itemStyle={styles.filterPickerItem}
+          >
+            <Picker.Item label="Tous" value="" />
+            {depots?.data?.map((depot) => (
+              <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
+            ))}
+          </Picker>
+        </View>
+
+        <View style={styles.filterItem}>
+          <Text variant="bodySmall" style={styles.filterLabel}>
+            Fournisseur
+          </Text>
+          <Picker
+            selectedValue={supplierId}
+            onValueChange={(value) => setSupplierId(value)}
+            style={styles.filterPicker}
+            itemStyle={styles.filterPickerItem}
+          >
+            <Picker.Item label="Tous" value="" />
+            {suppliers?.data?.map((supplier) => (
+              <Picker.Item key={supplier.id} label={supplier.name} value={supplier.id} />
+            ))}
+          </Picker>
+        </View>
+      </View>
+
       <FlatList
         data={data?.data || []}
         renderItem={renderProduct}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={() => {
+              setPage(1);
+              refetch();
+              refetchStock();
+            }}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
         ListEmptyComponent={
           !isLoading ? (
             <EmptyState
@@ -202,6 +392,10 @@ export default function ProductsListScreen() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
+
+      <Snackbar visible={!!deleteError} onDismiss={() => setDeleteError('')} duration={3000}>
+        {deleteError}
+      </Snackbar>
     </SafeAreaView>
   );
 }
@@ -210,18 +404,71 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  filtersRow: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  filterItem: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#999',
+    borderRadius: 4,
+    height: 62,
+    justifyContent: 'center',
+  },
+  filterLabel: {
+    paddingHorizontal: Spacing.sm,
+    paddingTop: Spacing.xs,
+    opacity: 0.6,
+    fontSize: 11,
+  },
+  filterPicker: {
+    height: 34,
+    marginTop: -2,
+  },
+  filterPickerItem: {
+    height: 34,
+    fontSize: 12,
+  },
   listContent: {
     padding: Spacing.md,
     paddingBottom: 100,
   },
   productCard: {
     marginBottom: Spacing.md,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  pressable: {
+    paddingRight: 40,
+  },
+  pressed: {
+    opacity: 0.9,
   },
   productHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: Spacing.sm,
+  },
+  imageWrapper: {
+    marginBottom: Spacing.sm,
+  },
+  productImage: {
+    width: '100%',
+    height: 140,
+    borderRadius: 12,
+    backgroundColor: '#EEE',
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: 140,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   productInfo: {
     flex: 1,
@@ -232,6 +479,21 @@ const styles = StyleSheet.create({
   },
   productSku: {
     opacity: 0.6,
+  },
+  productMeta: {
+    opacity: 0.6,
+  },
+  statusChip: {
+    borderRadius: 999,
+  },
+  statusText: {
+    color: '#fff',
+  },
+  stockRow: {
+    marginBottom: Spacing.sm,
+  },
+  stockText: {
+    opacity: 0.8,
   },
   productDetails: {
     flexDirection: 'row',
@@ -256,10 +518,10 @@ const styles = StyleSheet.create({
   priceValue: {
     fontWeight: 'bold',
   },
-  inactiveChip: {
-    alignSelf: 'flex-start',
-    marginTop: Spacing.sm,
-    backgroundColor: '#FFEBEE',
+  menuAnchor: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
   },
   fab: {
     position: 'absolute',

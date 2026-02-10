@@ -14,6 +14,7 @@ export const productService = {
     search?: string;
     categoryId?: string;
     brandId?: string;
+    supplierId?: string;
     depotId?: string;
     isActive?: boolean;
   }): Promise<PaginatedResponse<Product>> {

@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, Text, useTheme } from 'react-native-paper';
 import { SymbolView } from 'expo-symbols';
-import { Spacing } from '@/constants/theme';
+import { BorderRadius, Shadows, Spacing } from '@/constants/theme';
 
 interface ErrorMessageProps {
   title?: string;
@@ -19,27 +19,37 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = ({
 
   return (
     <View style={styles.container}>
-      <SymbolView
-        name="exclamationmark.triangle"
-        size={48}
-        tintColor={theme.colors.error}
-        type="hierarchical"
-        style={styles.icon}
-      />
-      
-      <Text variant="titleMedium" style={[styles.title, { color: theme.colors.error }]}>
-        {title}
-      </Text>
-      
-      <Text variant="bodyMedium" style={styles.message}>
-        {message}
-      </Text>
-      
-      {onRetry && (
-        <Button mode="contained" onPress={onRetry} style={styles.button}>
-          Réessayer
-        </Button>
-      )}
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.outline,
+          },
+        ]}
+      >
+        <SymbolView
+          name="exclamationmark.triangle"
+          size={48}
+          tintColor={theme.colors.error}
+          type="hierarchical"
+          style={styles.icon}
+        />
+
+        <Text variant="titleMedium" style={[styles.title, { color: theme.colors.error }]}>
+          {title}
+        </Text>
+
+        <Text variant="bodyMedium" style={styles.message}>
+          {message}
+        </Text>
+
+        {onRetry && (
+          <Button mode="contained" onPress={onRetry} style={styles.button}>
+            Réessayer
+          </Button>
+        )}
+      </View>
     </View>
   );
 };
@@ -50,6 +60,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.xl,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 420,
+    alignItems: 'center',
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderRadius: BorderRadius.xl,
+    ...Shadows.small,
   },
   icon: {
     marginBottom: Spacing.md,

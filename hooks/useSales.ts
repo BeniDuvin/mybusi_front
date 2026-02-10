@@ -41,9 +41,12 @@ export const useCreateSale = () => {
 
   return useMutation({
     mutationFn: (data: CreateSaleRequest) => saleService.create(data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['stock', 'depot', variables.depotId] });
       queryClient.invalidateQueries({ queryKey: ['stock'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['products', 'low-stock', variables.depotId] });
       queryClient.invalidateQueries({ queryKey: ['finance'] });
     },
   });

@@ -1,69 +1,206 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, FlatList, ScrollView } from 'react-native';
+import { SearchBar } from '@/components/ui/SearchBar';
+import { Spacing } from '@/constants/theme';
+import { useDepots } from '@/hooks/useDepots';
+import { useProducts } from '@/hooks/useProducts';
+import { useCreatePayment, useCreateSale } from '@/hooks/useSales';
+import { useAppStore } from '@/stores/app.store';
+import { useCartStore, type PackagingType } from '@/stores/cart.store';
+import type { PaymentMethod, Product } from '@/types';
 import {
-  Card,
-  Text,
-  Button,
-  useTheme,
-  Searchbar,
-  IconButton,
-  Divider,
-  Snackbar,
-  Portal,
-  Modal,
-  TextInput,
+    MOBILE_MONEY_PROVIDER_LABELS,
+    MOBILE_MONEY_PROVIDERS,
+    PAYMENT_METHOD_LABELS,
+    PAYMENT_METHODS,
+} from '@/utils/constants';
+import { formatCurrency } from '@/utils/format';
+import { Picker } from '@react-native-picker/picker';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import { FlatList, Image, StyleSheet, View } from 'react-native';
+import {
+    Button,
+    Card,
+    Divider,
+    IconButton,
+    Modal,
+    Portal,
+    Snackbar,
+    Switch,
+    Text,
+    TextInput,
+    useTheme,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useProducts } from '@/hooks/useProducts';
-import { useCreateSale } from '@/hooks/useSales';
-import { useCartStore } from '@/stores/cart.store';
-import { useAppStore } from '@/stores/app.store';
-import { Spacing } from '@/constants/theme';
-import { formatCurrency } from '@/utils/format';
-import type { Product } from '@/types';
 
 export default function CreateSaleScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { selectedDepotId } = useAppStore();
+  const { selectedDepotId, setSelectedDepotId } = useAppStore();
 
   const [search, setSearch] = useState('');
   const [quantityModalVisible, setQuantityModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [quantity, setQuantity] = useState('1');
   const [error, setError] = useState('');
+  const [payNow, setPayNow] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHODS.CASH);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [mobileMoneyProvider, setMobileMoneyProvider] = useState<
+    keyof typeof MOBILE_MONEY_PROVIDERS | ''
+  >('');
+  const [mobileMoneyNumber, setMobileMoneyNumber] = useState('');
+  const [paymentReference, setPaymentReference] = useState('');
 
-  const { data: products } = useProducts({
-    search,
-    depotId: selectedDepotId || undefined,
-    isActive: true,
-  });
+  const [linePackageType, setLinePackageType] = useState<PackagingType>('UNITE');
+  const [linePackageLabel, setLinePackageLabel] = useState('');
+  const [linePackageSize, setLinePackageSize] = useState('1');
+  const [linePackageQuantity, setLinePackageQuantity] = useState('1');
+
+  const getAvailableStock = (product: Product) => {
+    return (
+      product.quantity ??
+      product.currentStock ??
+      product.stockQuantity ??
+      product.stock?.quantity ??
+      null
+    );
+  };
+
+  const getCartQuantity = (productId: string) => {
+    return items.find((item) => item.product.id === productId)?.quantity ?? 0;
+  };
+
+  const { data: depots } = useDepots();
+  const { data: products } = useProducts(
+    {
+      search,
+      depotId: selectedDepotId || undefined,
+      isActive: true,
+    },
+    {
+      enabled: !!selectedDepotId,
+      refetchInterval: 8000,
+      refetchOnWindowFocus: true,
+    }
+  );
 
   const createSaleMutation = useCreateSale();
+  const createPaymentMutation = useCreatePayment();
   const {
     items,
     addItem,
     removeItem,
     updateQuantity,
-    getSubtotal,
-    getTotal,
-    getItemsCount,
+    clientId,
+    clientName,
+    discount,
+    tax,
+    notes,
+    setClientName,
+    setGlobalDiscount,
+    setTax,
     clear,
   } = useCartStore();
 
+  const [discountInput, setDiscountInput] = useState(discount ? discount.toString() : '');
+  const [taxInput, setTaxInput] = useState(tax ? tax.toString() : '');
+
+  useEffect(() => {
+    setDiscountInput(discount ? discount.toString() : '');
+  }, [discount]);
+
+  useEffect(() => {
+    setTaxInput(tax ? tax.toString() : '');
+  }, [tax]);
+
+  const itemsCount = useMemo(
+    () => items.reduce((sum, item) => sum + item.quantity, 0),
+    [items]
+  );
+
+  const toNumber = (value: unknown) => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : 0;
+  };
+
+  const subtotal = useMemo(() => {
+    return items.reduce((sum, item) => {
+      const qty = toNumber(item.quantity);
+      const price = toNumber(item.unitPrice);
+      const lineDiscount = toNumber(item.discount);
+      const lineTotal = qty * price - lineDiscount;
+      return sum + lineTotal;
+    }, 0);
+  }, [items]);
+
+  const total = useMemo(() => {
+    return subtotal - toNumber(discount) + toNumber(tax);
+  }, [subtotal, discount, tax]);
+
+  useEffect(() => {
+    if (paymentAmount === '' && total > 0) {
+      setPaymentAmount(total.toString());
+    }
+  }, [total, paymentAmount]);
+
+  const getPackageLabel = (type: PackagingType) => {
+    switch (type) {
+      case 'UNITE':
+        return 'Unité';
+      case 'CASIER':
+        return 'Casier';
+      case 'CARTON':
+        return 'Carton';
+      case 'PAQUET':
+        return 'Paquet';
+      default:
+        return 'Autre';
+    }
+  };
+
   const handleAddProduct = (product: Product) => {
+    const available = getAvailableStock(product);
+    const currentQty = getCartQuantity(product.id);
+    if (available !== null && currentQty >= available) {
+      setError(`Stock insuffisant pour ${product.name} (disponible: ${available})`);
+      return;
+    }
     setSelectedProduct(product);
     setQuantityModalVisible(true);
   };
 
   const confirmAddProduct = () => {
-    if (selectedProduct && parseInt(quantity) > 0) {
-      addItem(selectedProduct, parseInt(quantity));
-      setQuantityModalVisible(false);
-      setSelectedProduct(null);
-      setQuantity('1');
+    if (!selectedProduct) return;
+    const packageQuantity = parseInt(linePackageQuantity) || 0;
+    const packageSize = linePackageType === 'UNITE' ? 1 : parseInt(linePackageSize) || 0;
+    if (linePackageType === 'AUTRE' && !linePackageLabel.trim()) {
+      setError('Veuillez préciser le conditionnement');
+      return;
     }
+    if (packageQuantity <= 0 || packageSize <= 0) {
+      setError('Quantité et conditionnement doivent être > 0');
+      return;
+    }
+    const desired = packageQuantity * packageSize;
+    const available = getAvailableStock(selectedProduct);
+    const currentQty = getCartQuantity(selectedProduct.id);
+    if (available !== null && currentQty + desired > available) {
+      setError(
+        `Stock insuffisant pour ${selectedProduct.name} (disponible: ${available})`
+      );
+      return;
+    }
+    addItem(selectedProduct, desired, {
+      packageType: linePackageType,
+      packageLabel: linePackageLabel.trim() || undefined,
+      packageSize,
+      packageQuantity,
+    });
+    setQuantityModalVisible(false);
+    setSelectedProduct(null);
+    setLinePackageType('UNITE');
+    setLinePackageLabel('');
+    setLinePackageSize('1');
+    setLinePackageQuantity('1');
   };
 
   const handleCheckout = async () => {
@@ -77,28 +214,79 @@ export default function CreateSaleScreen() {
       return;
     }
 
+    if (payNow) {
+      const amount = parseFloat(paymentAmount) || 0;
+      if (amount <= 0) {
+        setError('Veuillez saisir un montant de paiement valide');
+        return;
+      }
+      if (amount > total) {
+        setError('Le montant payé ne peut pas dépasser le total');
+        return;
+      }
+
+      if (paymentMethod === PAYMENT_METHODS.MOBILE_MONEY) {
+        if (!mobileMoneyProvider || !mobileMoneyNumber) {
+          setError('Veuillez renseigner le provider et le numéro Mobile Money');
+          return;
+        }
+      }
+    }
+
     try {
-      await createSaleMutation.mutateAsync({
+      const clientNameNote = clientName.trim();
+      const notesValue = notes.trim();
+      const composedNotes = [
+        clientNameNote ? `Client: ${clientNameNote}` : null,
+        notesValue || null,
+      ]
+        .filter(Boolean)
+        .join(' | ');
+
+      const sale = await createSaleMutation.mutateAsync({
         depotId: selectedDepotId,
+        clientId: clientId || undefined,
         lines: items.map((item) => ({
           productId: item.product.id,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           discount: item.discount,
         })),
-        discount: 0,
-        tax: 0,
+        discount,
+        tax,
+        notes: composedNotes || undefined,
       });
 
+      if (payNow) {
+        const amount = parseFloat(paymentAmount) || 0;
+        await createPaymentMutation.mutateAsync({
+          saleId: sale.id,
+          amount,
+          method: paymentMethod,
+          mobileMoneyProvider:
+            paymentMethod === PAYMENT_METHODS.MOBILE_MONEY ? mobileMoneyProvider : undefined,
+          mobileMoneyNumber:
+            paymentMethod === PAYMENT_METHODS.MOBILE_MONEY ? mobileMoneyNumber : undefined,
+          reference: paymentReference || undefined,
+        });
+      }
+
       clear();
-      router.back();
+      const autoPrint = payNow ? '1' : '0';
+      router.replace(`/sales/invoice/${sale.id}?autoPrint=${autoPrint}&format=58mm`);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Erreur lors de la création de la vente');
+      const status = err?.response?.status;
+      const serverMessage = err?.response?.data?.message;
+      const details = status ? ` (code ${status})` : '';
+      setError(serverMessage ? `${serverMessage}${details}` : `Erreur lors de la création${details}`);
     }
   };
 
   const renderProduct = ({ item }: { item: Product }) => (
-    <Card style={styles.productCard} onPress={() => handleAddProduct(item)}>
+    <Card
+      style={[styles.productCard, { borderColor: theme.colors.outline }]}
+      onPress={() => handleAddProduct(item)}
+    >
       <Card.Content>
         <View style={styles.productRow}>
           <View style={styles.productInfo}>
@@ -106,6 +294,11 @@ export default function CreateSaleScreen() {
             <Text variant="bodySmall" style={styles.productPrice}>
               {formatCurrency(item.sellingPrice)}
             </Text>
+            {getAvailableStock(item) !== null && (
+              <Text variant="bodySmall" style={styles.productStock}>
+                Stock: {getAvailableStock(item)}
+              </Text>
+            )}
           </View>
           <IconButton icon="plus" onPress={() => handleAddProduct(item)} />
         </View>
@@ -122,16 +315,42 @@ export default function CreateSaleScreen() {
         <Text variant="bodySmall" style={styles.cartItemPrice}>
           {formatCurrency(item.unitPrice)} x {item.quantity}
         </Text>
+        <Text variant="bodySmall" style={styles.cartItemMeta}>
+          {item.packageQuantity} {item.packageLabel || getPackageLabel(item.packageType)} ·{' '}
+          {item.packageSize} u
+        </Text>
       </View>
 
       <View style={styles.cartItemActions}>
+        <IconButton
+          icon="minus-circle-outline"
+          size={18}
+          onPress={() => {
+            const nextQty = item.quantity - 1;
+            if (nextQty <= 0) {
+              removeItem(item.product.id);
+            } else {
+              updateQuantity(item.product.id, nextQty);
+            }
+          }}
+        />
         <Text variant="titleSmall" style={styles.cartItemTotal}>
           {formatCurrency(item.quantity * item.unitPrice)}
         </Text>
         <IconButton
-          icon="delete"
-          size={20}
-          onPress={() => removeItem(item.product.id)}
+          icon="plus-circle-outline"
+          size={18}
+          onPress={() => {
+            const available = getAvailableStock(item.product);
+            const nextQty = item.quantity + 1;
+            if (available !== null && nextQty > available) {
+              setError(
+                `Stock insuffisant pour ${item.product.name} (disponible: ${available})`
+              );
+              return;
+            }
+            updateQuantity(item.product.id, nextQty);
+          }}
         />
       </View>
     </View>
@@ -139,67 +358,258 @@ export default function CreateSaleScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.content}>
-        {/* Products List */}
-        <View style={styles.productsSection}>
-          <Searchbar
-            placeholder="Rechercher un produit..."
-            onChangeText={setSearch}
-            value={search}
-            style={styles.searchBar}
-          />
-
-          <FlatList
-            data={products?.data || []}
-            renderItem={renderProduct}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.productsList}
-          />
-        </View>
-
-        {/* Cart Summary */}
-        <View style={[styles.cartSection, { backgroundColor: theme.colors.surface }]}>
-          <Text variant="titleMedium" style={styles.cartTitle}>
-            Panier ({getItemsCount()} articles)
-          </Text>
-
-          <ScrollView style={styles.cartItems}>
-            {items.map(renderCartItem)}
-          </ScrollView>
-
-          <Divider style={styles.divider} />
-
-          <View style={styles.totals}>
-            <View style={styles.totalRow}>
-              <Text variant="bodyLarge">Sous-total:</Text>
-              <Text variant="bodyLarge">{formatCurrency(getSubtotal())}</Text>
-            </View>
-            <View style={styles.totalRow}>
-              <Text variant="titleMedium" style={styles.grandTotal}>
-                Total:
+      <FlatList
+        data={products?.data || []}
+        renderItem={renderProduct}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.productsList}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <View style={styles.hero}>
+              <Text variant="headlineSmall" style={styles.heroTitle}>
+                Nouvelle vente
               </Text>
-              <Text variant="titleMedium" style={styles.grandTotal}>
-                {formatCurrency(getTotal())}
+              <Text variant="bodySmall" style={styles.heroSubtitle}>
+                Sélectionnez un dépôt puis ajoutez des produits au panier.
+              </Text>
+            </View>
+
+            <Card style={styles.headerCard}>
+              <Card.Content>
+                <Text variant="titleSmall" style={styles.sectionTitle}>
+                  Dépôt
+                </Text>
+                <View style={[styles.pickerContainer, { borderColor: theme.colors.outline }]}>
+                  <Text variant="bodyMedium" style={styles.pickerLabel}>
+                    Dépôt *
+                  </Text>
+                  <Picker
+                    selectedValue={selectedDepotId || ''}
+                    onValueChange={(value) => setSelectedDepotId(value || null)}
+                  >
+                    <Picker.Item label="Sélectionner un dépôt" value="" />
+                    {depots?.data?.map((depot) => (
+                      <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
+                    ))}
+                  </Picker>
+                </View>
+
+                <SearchBar placeholder="Rechercher un produit..." onSearch={setSearch} />
+
+                <TextInput
+                  label="Nom du client (optionnel)"
+                  value={clientName}
+                  onChangeText={setClientName}
+                  mode="outlined"
+                  style={styles.input}
+                />
+
+                <View style={styles.summaryRow}>
+                  <View style={styles.summaryItem}>
+                    <Text variant="labelSmall" style={styles.summaryLabel}>
+                      Articles
+                    </Text>
+                    <Text variant="titleSmall" style={styles.summaryValue}>
+                      {itemsCount}
+                    </Text>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <Text variant="labelSmall" style={styles.summaryLabel}>
+                      Total
+                    </Text>
+                    <Text
+                      variant="titleSmall"
+                      style={[styles.summaryValue, { color: theme.colors.primary }]}
+                    >
+                      {formatCurrency(total)}
+                    </Text>
+                  </View>
+                </View>
+              </Card.Content>
+            </Card>
+
+            <View style={styles.sectionHeaderRow}>
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                Catalogue produits
               </Text>
             </View>
           </View>
+        }
+        ListFooterComponent={
+          <View
+            style={[
+              styles.cartSection,
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline },
+            ]}
+          >
+            <Text variant="titleMedium" style={styles.cartTitle}>
+              Panier ({itemsCount} articles)
+            </Text>
 
-          <View style={styles.actions}>
-            <Button mode="outlined" onPress={clear} style={styles.clearButton}>
-              Vider
-            </Button>
-            <Button
-              mode="contained"
-              onPress={handleCheckout}
-              loading={createSaleMutation.isPending}
-              disabled={items.length === 0 || createSaleMutation.isPending}
-              style={styles.checkoutButton}
-            >
-              Valider
-            </Button>
+            {items.length === 0 ? (
+              <Text variant="bodySmall" style={styles.cartEmpty}>
+                Aucun article ajouté
+              </Text>
+            ) : (
+              <View style={styles.cartItems}>{items.map(renderCartItem)}</View>
+            )}
+
+            <Divider style={styles.divider} />
+
+            <View style={styles.adjustments}>
+              <Text variant="titleSmall" style={styles.sectionTitle}>
+                Remise et taxes (optionnels)
+              </Text>
+              <TextInput
+                label="Remise"
+                value={discountInput}
+                onChangeText={(text) => {
+                  setDiscountInput(text);
+                  const value = parseFloat(text.replace(',', '.'));
+                  setGlobalDiscount(Number.isFinite(value) ? value : 0);
+                }}
+                mode="outlined"
+                keyboardType="numeric"
+                left={<TextInput.Affix text="FCFA" />}
+                style={styles.input}
+              />
+              <TextInput
+                label="Taxes"
+                value={taxInput}
+                onChangeText={(text) => {
+                  setTaxInput(text);
+                  const value = parseFloat(text.replace(',', '.'));
+                  setTax(Number.isFinite(value) ? value : 0);
+                }}
+                mode="outlined"
+                keyboardType="numeric"
+                left={<TextInput.Affix text="FCFA" />}
+                style={styles.input}
+              />
+            </View>
+
+            <View style={styles.totals}>
+              <View style={styles.totalRow}>
+                <Text variant="bodyLarge">Sous-total:</Text>
+                <Text variant="bodyLarge">{formatCurrency(subtotal)}</Text>
+              </View>
+              <View style={styles.totalRow}>
+                <Text variant="bodyLarge">Remise:</Text>
+                <Text variant="bodyLarge">{formatCurrency(toNumber(discount))}</Text>
+              </View>
+              <View style={styles.totalRow}>
+                <Text variant="bodyLarge">Taxes:</Text>
+                <Text variant="bodyLarge">{formatCurrency(toNumber(tax))}</Text>
+              </View>
+              <View style={styles.totalRow}>
+                <Text variant="titleMedium" style={styles.grandTotal}>
+                  Total:
+                </Text>
+                <Text variant="titleMedium" style={styles.grandTotal}>
+                  {formatCurrency(total)}
+                </Text>
+              </View>
+            </View>
+
+            <Divider style={styles.sectionDivider} />
+            <View style={styles.payRow}>
+              <Text variant="bodyMedium">Encaisser maintenant</Text>
+              <Switch value={payNow} onValueChange={setPayNow} />
+            </View>
+
+            {payNow && (
+              <View>
+                <View style={styles.pickerContainer}>
+                  <Text variant="bodyMedium" style={styles.pickerLabel}>
+                    Méthode de paiement
+                  </Text>
+                  <Picker
+                    selectedValue={paymentMethod}
+                    onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}
+                  >
+                    {Object.values(PAYMENT_METHODS).map((method) => (
+                      <Picker.Item
+                        key={method}
+                        label={PAYMENT_METHOD_LABELS[method]}
+                        value={method}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+
+                <TextInput
+                  label="Montant payé"
+                  value={paymentAmount}
+                  onChangeText={setPaymentAmount}
+                  mode="outlined"
+                  keyboardType="numeric"
+                  left={<TextInput.Affix text="FCFA" />}
+                  style={styles.input}
+                />
+
+                {paymentMethod === PAYMENT_METHODS.MOBILE_MONEY && (
+                  <>
+                    <View style={styles.pickerContainer}>
+                      <Text variant="bodyMedium" style={styles.pickerLabel}>
+                        Provider Mobile Money
+                      </Text>
+                      <Picker
+                        selectedValue={mobileMoneyProvider}
+                        onValueChange={(value) => setMobileMoneyProvider(value as any)}
+                      >
+                        <Picker.Item label="Sélectionner un provider" value="" />
+                        {Object.values(MOBILE_MONEY_PROVIDERS).map((provider) => (
+                          <Picker.Item
+                            key={provider}
+                            label={MOBILE_MONEY_PROVIDER_LABELS[provider]}
+                            value={provider}
+                          />
+                        ))}
+                      </Picker>
+                    </View>
+
+                    <TextInput
+                      label="Numéro Mobile Money"
+                      value={mobileMoneyNumber}
+                      onChangeText={setMobileMoneyNumber}
+                      mode="outlined"
+                      keyboardType="phone-pad"
+                      style={styles.input}
+                    />
+                  </>
+                )}
+
+                <TextInput
+                  label="Référence (optionnelle)"
+                  value={paymentReference}
+                  onChangeText={setPaymentReference}
+                  mode="outlined"
+                  style={styles.input}
+                />
+              </View>
+            )}
+
+            <View style={styles.actions}>
+              <Button mode="outlined" onPress={clear} style={styles.clearButton}>
+                Vider
+              </Button>
+              <Button
+                mode="contained"
+                onPress={handleCheckout}
+                loading={createSaleMutation.isPending || createPaymentMutation.isPending}
+                disabled={
+                  items.length === 0 ||
+                  createSaleMutation.isPending ||
+                  createPaymentMutation.isPending
+                }
+                style={styles.checkoutButton}
+              >
+                Valider
+              </Button>
+            </View>
           </View>
-        </View>
-      </View>
+        }
+      />
 
       {/* Quantity Modal */}
       <Portal>
@@ -216,14 +626,66 @@ export default function CreateSaleScreen() {
             {selectedProduct?.name}
           </Text>
 
+          <View style={styles.modalImageRow}>
+            {selectedProduct?.imageUrl ? (
+              <Image source={{ uri: selectedProduct.imageUrl }} style={styles.modalImage} />
+            ) : (
+              <View style={[styles.modalImage, styles.modalImagePlaceholder]}>
+                <Text variant="bodySmall" style={styles.modalImageText}>
+                  Pas d'image
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.pickerContainer}>
+            <Text variant="bodyMedium" style={styles.pickerLabel}>
+              Conditionnement *
+            </Text>
+            <Picker
+              selectedValue={linePackageType}
+              onValueChange={(value) => setLinePackageType(value as PackagingType)}
+            >
+              <Picker.Item label="Unité" value="UNITE" />
+              <Picker.Item label="Casier" value="CASIER" />
+              <Picker.Item label="Carton" value="CARTON" />
+              <Picker.Item label="Paquet" value="PAQUET" />
+              <Picker.Item label="Autre" value="AUTRE" />
+            </Picker>
+          </View>
+
+          {linePackageType === 'AUTRE' && (
+            <TextInput
+              label="Libellé conditionnement *"
+              value={linePackageLabel}
+              onChangeText={setLinePackageLabel}
+              mode="outlined"
+              style={styles.quantityInput}
+            />
+          )}
+
           <TextInput
-            label="Quantité"
-            value={quantity}
-            onChangeText={setQuantity}
+            label="Unités par conditionnement *"
+            value={linePackageType === 'UNITE' ? '1' : linePackageSize}
+            onChangeText={setLinePackageSize}
+            keyboardType="numeric"
+            mode="outlined"
+            style={[styles.quantityInput, linePackageType === 'UNITE' && styles.readonlyInput]}
+            disabled={linePackageType === 'UNITE'}
+          />
+
+          <TextInput
+            label="Quantité de conditionnements *"
+            value={linePackageQuantity}
+            onChangeText={setLinePackageQuantity}
             keyboardType="numeric"
             mode="outlined"
             style={styles.quantityInput}
           />
+
+          <Text variant="bodySmall" style={styles.modalHelper}>
+            Quantité totale: {(parseInt(linePackageQuantity) || 0) * (linePackageType === 'UNITE' ? 1 : parseInt(linePackageSize) || 0)} unités
+          </Text>
 
           <View style={styles.modalActions}>
             <Button mode="outlined" onPress={() => setQuantityModalVisible(false)}>
@@ -255,21 +717,67 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
-    flex: 1,
+  header: {
+    paddingTop: Spacing.md,
+  },
+  hero: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  heroTitle: {
+    fontWeight: 'bold',
+  },
+  heroSubtitle: {
+    marginTop: Spacing.xs,
+    opacity: 0.7,
+  },
+  headerCard: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    borderRadius: 16,
+  },
+  sectionHeaderRow: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  sectionTitle: {
+    fontWeight: 'bold',
+    marginBottom: Spacing.xs,
+  },
+  pickerContainer: {
+    marginHorizontal: 0,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderRadius: 10,
+  },
+  pickerLabel: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    opacity: 0.6,
+  },
+  summaryRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: Spacing.sm,
   },
-  productsSection: {
+  summaryItem: {
     flex: 1,
   },
-  searchBar: {
-    margin: Spacing.md,
+  summaryLabel: {
+    opacity: 0.6,
+  },
+  summaryValue: {
+    fontWeight: 'bold',
+    marginTop: Spacing.xs,
   },
   productsList: {
     padding: Spacing.md,
+    paddingBottom: 120,
   },
   productCard: {
     marginBottom: Spacing.sm,
+    borderRadius: 14,
+    borderWidth: 1,
   },
   productRow: {
     flexDirection: 'row',
@@ -283,18 +791,25 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     opacity: 0.7,
   },
+  productStock: {
+    marginTop: Spacing.xs,
+    opacity: 0.6,
+  },
   cartSection: {
-    width: 350,
+    marginTop: Spacing.md,
     padding: Spacing.md,
-    borderLeftWidth: 1,
-    borderLeftColor: '#E0E0E0',
+    borderRadius: 12,
+    borderWidth: 1,
   },
   cartTitle: {
     fontWeight: 'bold',
     marginBottom: Spacing.md,
   },
+  cartEmpty: {
+    opacity: 0.6,
+    marginBottom: Spacing.md,
+  },
   cartItems: {
-    flex: 1,
     marginBottom: Spacing.md,
   },
   cartItem: {
@@ -315,6 +830,10 @@ const styles = StyleSheet.create({
   cartItemPrice: {
     opacity: 0.6,
   },
+  cartItemMeta: {
+    opacity: 0.6,
+    marginTop: Spacing.xs,
+  },
   cartItemActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -326,8 +845,26 @@ const styles = StyleSheet.create({
   divider: {
     marginVertical: Spacing.md,
   },
+  sectionDivider: {
+    marginVertical: Spacing.md,
+  },
+  payRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
+  },
+  input: {
+    marginBottom: Spacing.sm,
+  },
+  readonlyInput: {
+    opacity: 0.7,
+  },
   totals: {
     marginBottom: Spacing.lg,
+  },
+  adjustments: {
+    marginBottom: Spacing.md,
   },
   totalRow: {
     flexDirection: 'row',
@@ -360,8 +897,30 @@ const styles = StyleSheet.create({
   modalProduct: {
     marginBottom: Spacing.lg,
   },
+  modalImageRow: {
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  modalImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    backgroundColor: '#EEE',
+  },
+  modalImagePlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalImageText: {
+    opacity: 0.6,
+  },
   quantityInput: {
     marginBottom: Spacing.lg,
+  },
+  modalHelper: {
+    marginTop: -Spacing.sm,
+    marginBottom: Spacing.lg,
+    opacity: 0.6,
   },
   modalActions: {
     flexDirection: 'row',

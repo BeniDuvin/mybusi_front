@@ -1,13 +1,13 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Card, Text, useTheme } from 'react-native-paper';
-import { SymbolView } from 'expo-symbols';
-import { Spacing } from '@/constants/theme';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { BorderRadius, Shadows, Spacing } from '@/constants/theme';
 
 interface KPICardProps {
   title: string;
   value: string | number;
-  icon: string;
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   iconColor?: string;
   subtitle?: string;
   trend?: 'up' | 'down' | 'neutral';
@@ -31,14 +31,23 @@ export const KPICard: React.FC<KPICardProps> = ({
     trend === 'up' ? theme.colors.primary : trend === 'down' ? theme.colors.error : undefined;
 
   return (
-    <Card style={styles.card} onPress={onPress}>
+    <Card
+      style={[
+        styles.card,
+        {
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.outline,
+        },
+      ]}
+      onPress={onPress}
+      mode="contained"
+    >
       <Card.Content style={styles.content}>
         <View style={styles.header}>
-          <SymbolView
-            name={icon as any}
-            size={24}
-            tintColor={iconColor || theme.colors.primary}
-            type="hierarchical"
+          <MaterialCommunityIcons
+            name={icon}
+            size={22}
+            color={iconColor || theme.colors.primary}
           />
           <Text variant="bodySmall" style={styles.title}>
             {title}
@@ -57,11 +66,10 @@ export const KPICard: React.FC<KPICardProps> = ({
 
         {trend && trendValue && (
           <View style={styles.trendContainer}>
-            <SymbolView
-              name={trend === 'up' ? 'arrow.up' : 'arrow.down'}
+            <MaterialCommunityIcons
+              name={trend === 'up' ? 'trending-up' : 'trending-down'}
               size={14}
-              tintColor={trendColor}
-              type="hierarchical"
+              color={trendColor}
             />
             <Text variant="bodySmall" style={[styles.trend, { color: trendColor }]}>
               {trendValue}
@@ -78,9 +86,13 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: Spacing.xs,
     marginVertical: Spacing.xs,
+    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
+    ...Shadows.small,
   },
   content: {
     paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
   },
   header: {
     flexDirection: 'row',
@@ -89,14 +101,14 @@ const styles = StyleSheet.create({
   },
   title: {
     marginLeft: Spacing.sm,
-    opacity: 0.7,
+    opacity: 0.75,
   },
   value: {
     fontWeight: 'bold',
     marginBottom: Spacing.xs,
   },
   subtitle: {
-    opacity: 0.6,
+    opacity: 0.65,
   },
   trendContainer: {
     flexDirection: 'row',
