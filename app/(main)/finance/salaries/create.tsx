@@ -26,12 +26,34 @@ export default function CreateSalaryScreen() {
   const [formData, setFormData] = useState<CreateSalaryRequest>({
     userId: '',
     amount: 0,
-    period: '',
+    period: new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' })
+      .format(new Date())
+      .replace(/^./, (c) => c.toUpperCase()),
     paymentDate: new Date().toISOString().split('T')[0],
     notes: '',
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const formatPeriodFromDate = (dateValue: string) => {
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return '';
+    const formatted = new Intl.DateTimeFormat('fr-FR', {
+      month: 'long',
+      year: 'numeric',
+    }).format(date);
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  };
+
+  const getErrorMessage = (value: unknown, fallback: string) => {
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item)).join(', ');
+    }
+    if (typeof value === 'string') {
+      return value;
+    }
+    return fallback;
+  };
 
   useEffect(() => {
     if (!canManage) return;
@@ -43,6 +65,13 @@ export default function CreateSalaryScreen() {
     }
   }, [canManage, formData.userId, isAdmin, user?.id, usersData?.data]);
 
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      period: formatPeriodFromDate(prev.paymentDate) || prev.period,
+    }));
+  }, [formData.paymentDate]);
+
   const handleSubmit = async () => {
     if (!formData.userId || !formData.period || formData.amount <= 0) {
       setError('Veuillez remplir les champs obligatoires');
@@ -50,7 +79,15 @@ export default function CreateSalaryScreen() {
     }
 
     try {
-      await createMutation.mutateAsync(formData);
+      const payload: CreateSalaryRequest = {
+        userId: formData.userId,
+        amount: Number(formData.amount) || 0,
+        period: formatPeriodFromDate(formData.paymentDate),
+        // Backend requires ISO date format.
+        paymentDate: new Date(formData.paymentDate).toISOString(),
+        notes: formData.notes?.trim() || undefined,
+      };
+      await createMutation.mutateAsync(payload);
       setSuccess('Salaire enregistré');
       setTimeout(() => {
         if (router.canGoBack()) {
@@ -60,7 +97,7 @@ export default function CreateSalaryScreen() {
         }
       }, 1200);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Erreur lors de la création');
+      setError(getErrorMessage(err?.response?.data?.message, 'Erreur lors de la création'));
     }
   };
 
@@ -107,9 +144,9 @@ export default function CreateSalaryScreen() {
           <TextInput
             label="Période *"
             value={formData.period}
-            onChangeText={(text) => setFormData({ ...formData, period: text })}
             mode="outlined"
-            style={styles.input}
+            style={[styles.input, styles.readonlyInput]}
+            disabled
           />
 
           <TextInput

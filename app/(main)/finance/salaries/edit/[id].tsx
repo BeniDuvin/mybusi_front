@@ -15,7 +15,8 @@ import { Picker } from '@react-native-picker/picker';
 export default function EditSalaryScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id: idParam } = useLocalSearchParams<{ id?: string | string[] }>();
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const updateMutation = useUpdateSalary();
   const { user, hasRole } = useAuthContext();
   const isAdmin = hasRole(['ADMIN']);
@@ -36,6 +37,26 @@ export default function EditSalaryScreen() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  const formatPeriodFromDate = (dateValue: string) => {
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return '';
+    const formatted = new Intl.DateTimeFormat('fr-FR', {
+      month: 'long',
+      year: 'numeric',
+    }).format(date);
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  };
+
+  const getErrorMessage = (value: unknown, fallback: string) => {
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item)).join(', ');
+    }
+    if (typeof value === 'string') {
+      return value;
+    }
+    return fallback;
+  };
+
   useEffect(() => {
     const load = async () => {
       if (!id) return;
@@ -44,12 +65,12 @@ export default function EditSalaryScreen() {
         setFormData({
           userId: salary.userId,
           amount: salary.amount,
-          period: salary.period,
+          period: formatPeriodFromDate(salary.paymentDate) || salary.period,
           paymentDate: salary.paymentDate || new Date().toISOString().split('T')[0],
           notes: salary.notes || '',
         });
       } catch (err: any) {
-        setError(err.response?.data?.message || 'Erreur lors du chargement');
+        setError(getErrorMessage(err?.response?.data?.message, 'Erreur lors du chargement'));
       } finally {
         setLoading(false);
       }
@@ -67,6 +88,13 @@ export default function EditSalaryScreen() {
     }
   }, [canManage, formData.userId, isAdmin, user?.id, usersData?.data]);
 
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      period: formatPeriodFromDate(prev.paymentDate) || prev.period,
+    }));
+  }, [formData.paymentDate]);
+
   const handleSubmit = async () => {
     if (!id) return;
     if (!formData.userId || !formData.period || formData.amount <= 0) {
@@ -75,7 +103,14 @@ export default function EditSalaryScreen() {
     }
 
     try {
-      await updateMutation.mutateAsync({ id, data: formData });
+      const payload: Partial<CreateSalaryRequest> = {
+        userId: formData.userId,
+        amount: Number(formData.amount) || 0,
+        period: formatPeriodFromDate(formData.paymentDate),
+        paymentDate: new Date(formData.paymentDate).toISOString(),
+        notes: formData.notes?.trim() || undefined,
+      };
+      await updateMutation.mutateAsync({ id, data: payload });
       setSuccess('Salaire mis à jour');
       setTimeout(() => {
         if (router.canGoBack()) {
@@ -85,7 +120,7 @@ export default function EditSalaryScreen() {
         }
       }, 1200);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Erreur lors de la mise à jour');
+      setError(getErrorMessage(err?.response?.data?.message, 'Erreur lors de la mise à jour'));
     }
   };
 
@@ -140,17 +175,17 @@ export default function EditSalaryScreen() {
           <TextInput
             label="Période *"
             value={formData.period}
-            onChangeText={(text) => setFormData({ ...formData, period: text })}
             mode="outlined"
-            style={styles.input}
+            style={[styles.input, styles.readonlyInput]}
+            disabled
           />
 
           <TextInput
             label="Date de paiement *"
             value={formData.paymentDate}
+            onChangeText={(text) => setFormData({ ...formData, paymentDate: text })}
             mode="outlined"
-            style={[styles.input, styles.readonlyInput]}
-            disabled
+            style={styles.input}
           />
 
           <TextInput

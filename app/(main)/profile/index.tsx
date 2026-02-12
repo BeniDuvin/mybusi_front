@@ -140,6 +140,14 @@ export default function ProfileScreen() {
             />
             <Divider />
             <List.Item
+              title="Gestion des salaires"
+              description="Créer, filtrer et modifier les paiements salaires"
+              left={(props) => <List.Icon {...props} icon="cash-check" />}
+              right={(props) => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => router.push('/finance/salaries')}
+            />
+            <Divider />
+            <List.Item
               title="Transactions"
               description="Ventes et achats par période"
               left={(props) => <List.Icon {...props} icon="cash-multiple" />}
