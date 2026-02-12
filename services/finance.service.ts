@@ -111,7 +111,7 @@ export const salaryService = {
     return response.data;
   },
 
-  async update(id: string, data: Partial<CreateSalaryRequest>): Promise<SalaryPayment> {
+  async update(id: string, data: Partial<Omit<CreateSalaryRequest, 'userId'>>): Promise<SalaryPayment> {
     const response = await api.patch<SalaryPayment>(`/salaries/${id}`, data);
     return response.data;
   },

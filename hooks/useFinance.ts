@@ -126,7 +126,7 @@ export const useUpdateSalary = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<CreateSalaryRequest> }) =>
+    mutationFn: ({ id, data }: { id: string; data: Partial<Omit<CreateSalaryRequest, 'userId'>> }) =>
       salaryService.update(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['salaries'] });

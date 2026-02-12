@@ -20,10 +20,26 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { Spacing } from '@/constants/theme';
-import { formatCurrency, formatDate } from '@/utils/format';
+import { formatCurrency, formatDate, formatDateTime } from '@/utils/format';
 import type { SalaryPayment } from '@/types';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
+import { invoiceService } from '@/services/invoice.service';
+
+const MONTH_OPTIONS = [
+  { label: 'Janvier', value: 'Janvier' },
+  { label: 'Février', value: 'Février' },
+  { label: 'Mars', value: 'Mars' },
+  { label: 'Avril', value: 'Avril' },
+  { label: 'Mai', value: 'Mai' },
+  { label: 'Juin', value: 'Juin' },
+  { label: 'Juillet', value: 'Juillet' },
+  { label: 'Août', value: 'Août' },
+  { label: 'Septembre', value: 'Septembre' },
+  { label: 'Octobre', value: 'Octobre' },
+  { label: 'Novembre', value: 'Novembre' },
+  { label: 'Décembre', value: 'Décembre' },
+];
 
 export default function SalariesListScreen() {
   const theme = useTheme();
@@ -34,7 +50,8 @@ export default function SalariesListScreen() {
 
   const [page, setPage] = useState(1);
   const [userId, setUserId] = useState('');
-  const [period, setPeriod] = useState('');
+  const [periodMonth, setPeriodMonth] = useState('');
+  const [periodYear, setPeriodYear] = useState('');
   const [startDateValue, setStartDateValue] = useState<Date | null>(null);
   const [endDateValue, setEndDateValue] = useState<Date | null>(null);
   const [showStartPicker, setShowStartPicker] = useState(false);
@@ -70,12 +87,13 @@ export default function SalariesListScreen() {
         999
       ).toISOString()
     : undefined;
+  const period = periodMonth && periodYear ? `${periodMonth} ${periodYear}` : undefined;
 
   const { data, isLoading, error, refetch } = useSalaries({
     page,
     limit: 20,
     userId: userId || undefined,
-    period: period.trim() || undefined,
+    period,
     startDate,
     endDate,
   });
@@ -92,6 +110,74 @@ export default function SalariesListScreen() {
     } catch (err) {
       console.error('Delete error:', err);
     }
+  };
+
+  const handlePrint = async () => {
+    const list = [...salaries].sort(
+      (a, b) => new Date(b.paymentDate || b.createdAt).getTime() - new Date(a.paymentDate || a.createdAt).getTime()
+    );
+    const total = list.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const periodLabel = period || 'Toutes';
+    const userLabel =
+      userId && isAdmin
+        ? usersData?.data?.find((u) => u.id === userId)
+          ? `${usersData?.data?.find((u) => u.id === userId)?.firstName} ${usersData?.data?.find((u) => u.id === userId)?.lastName}`
+          : 'Employé'
+        : 'Tous';
+    const rows = list
+      .map(
+        (item) => `
+          <tr>
+            <td>${item.user ? `${item.user.firstName} ${item.user.lastName}` : 'Employé'}</td>
+            <td>${item.period || '—'}</td>
+            <td>${formatDateTime(item.paymentDate || item.createdAt)}</td>
+            <td>${item.notes || '—'}</td>
+            <td style="text-align:right;">${formatCurrency(item.amount)}</td>
+          </tr>
+        `
+      )
+      .join('');
+
+    const html = `
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <style>
+            body { font-family: Arial, sans-serif; padding: 16px; }
+            h2 { margin: 0 0 4px; }
+            .meta { color: #666; margin-bottom: 16px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border-bottom: 1px solid #eee; padding: 8px; font-size: 12px; }
+            th { text-align: left; background: #f7f7f7; }
+            .total { margin-top: 12px; font-weight: bold; text-align: right; }
+          </style>
+        </head>
+        <body>
+          <h2>Rapport des salaires</h2>
+          <div class="meta">
+            Employé: ${userLabel} · Période: ${periodLabel} ·
+            Dates: ${startDateValue ? formatDate(startDateValue) : '—'} à ${endDateValue ? formatDate(endDateValue) : '—'}
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Employé</th>
+                <th>Période</th>
+                <th>Date paiement</th>
+                <th>Notes</th>
+                <th style="text-align:right;">Montant</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || '<tr><td colspan="5">Aucun salaire</td></tr>'}
+            </tbody>
+          </table>
+          <div class="total">Total: ${formatCurrency(total)}</div>
+        </body>
+      </html>
+    `;
+
+    await invoiceService.printHtml(html);
   };
 
   const renderSalary = ({ item }: { item: SalaryPayment }) => (
@@ -184,16 +270,45 @@ export default function SalariesListScreen() {
       </View>
 
       <View style={styles.filtersRow}>
-        <TextInput
-          label="Période"
-          value={period}
-          onChangeText={(value) => {
-            setPeriod(value);
-            setPage(1);
-          }}
-          mode="outlined"
-          style={styles.periodInput}
-        />
+        <View style={styles.filterItem}>
+          <Text variant="bodySmall" style={styles.filterLabel}>
+            Mois
+          </Text>
+          <Picker
+            selectedValue={periodMonth}
+            onValueChange={(value) => {
+              setPeriodMonth(String(value));
+              setPage(1);
+            }}
+            style={styles.filterPicker}
+            itemStyle={styles.filterPickerItem}
+          >
+            <Picker.Item label="Tous" value="" />
+            {MONTH_OPTIONS.map((item) => (
+              <Picker.Item key={item.value} label={item.label} value={item.value} />
+            ))}
+          </Picker>
+        </View>
+        <View style={styles.filterItem}>
+          <Text variant="bodySmall" style={styles.filterLabel}>
+            Année
+          </Text>
+          <Picker
+            selectedValue={periodYear}
+            onValueChange={(value) => {
+              setPeriodYear(String(value));
+              setPage(1);
+            }}
+            style={styles.filterPicker}
+            itemStyle={styles.filterPickerItem}
+          >
+            <Picker.Item label="Toutes" value="" />
+            {Array.from({ length: 10 }).map((_, idx) => {
+              const year = String(new Date().getFullYear() - 4 + idx);
+              return <Picker.Item key={year} label={year} value={year} />;
+            })}
+          </Picker>
+        </View>
       </View>
 
       <View style={styles.filtersRow}>
@@ -206,11 +321,15 @@ export default function SalariesListScreen() {
       </View>
 
       <View style={[styles.filtersRow, styles.actionsRow]}>
+        <Button mode="contained" onPress={handlePrint} style={styles.printButton}>
+          Imprimer
+        </Button>
         <Button
           mode="text"
           onPress={() => {
             setUserId('');
-            setPeriod('');
+            setPeriodMonth('');
+            setPeriodYear('');
             setStartDateValue(null);
             setEndDateValue(null);
             setPage(1);
@@ -334,8 +453,11 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
   },
   actionsRow: {
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     paddingTop: 0,
+  },
+  printButton: {
+    marginBottom: 2,
   },
   filterItem: {
     flex: 1,
@@ -356,9 +478,6 @@ const styles = StyleSheet.create({
   filterPickerItem: {
     height: 36,
     fontSize: 12,
-  },
-  periodInput: {
-    flex: 1,
   },
   dateButton: {
     flex: 1,

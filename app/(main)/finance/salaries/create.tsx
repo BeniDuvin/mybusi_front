@@ -5,11 +5,26 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import type { CreateSalaryRequest } from '@/types';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
+
+const MONTH_OPTIONS = [
+  { label: 'Janvier', value: 'Janvier' },
+  { label: 'Février', value: 'Février' },
+  { label: 'Mars', value: 'Mars' },
+  { label: 'Avril', value: 'Avril' },
+  { label: 'Mai', value: 'Mai' },
+  { label: 'Juin', value: 'Juin' },
+  { label: 'Juillet', value: 'Juillet' },
+  { label: 'Août', value: 'Août' },
+  { label: 'Septembre', value: 'Septembre' },
+  { label: 'Octobre', value: 'Octobre' },
+  { label: 'Novembre', value: 'Novembre' },
+  { label: 'Décembre', value: 'Décembre' },
+];
 
 export default function CreateSalaryScreen() {
   const theme = useTheme();
@@ -23,26 +38,29 @@ export default function CreateSalaryScreen() {
     { enabled: isAdmin }
   );
 
+  const today = new Date();
+  const defaultMonthLabel = MONTH_OPTIONS[today.getMonth()]?.value || 'Janvier';
+
   const [formData, setFormData] = useState<CreateSalaryRequest>({
     userId: '',
     amount: 0,
-    period: new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' })
-      .format(new Date())
-      .replace(/^./, (c) => c.toUpperCase()),
+    period: `${defaultMonthLabel} ${today.getFullYear()}`,
     paymentDate: new Date().toISOString().split('T')[0],
     notes: '',
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [periodMonth, setPeriodMonth] = useState(defaultMonthLabel);
+  const [periodYear, setPeriodYear] = useState(String(today.getFullYear()));
 
-  const formatPeriodFromDate = (dateValue: string) => {
-    const date = new Date(dateValue);
-    if (Number.isNaN(date.getTime())) return '';
-    const formatted = new Intl.DateTimeFormat('fr-FR', {
-      month: 'long',
-      year: 'numeric',
-    }).format(date);
-    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  const toIsoFromInputDate = (dateValue: string) => {
+    const parts = dateValue.split('-').map((part) => Number(part));
+    if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+      return null;
+    }
+    const [year, month, day] = parts;
+    if (!year || !month || !day) return null;
+    return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0)).toISOString();
   };
 
   const getErrorMessage = (value: unknown, fallback: string) => {
@@ -66,11 +84,9 @@ export default function CreateSalaryScreen() {
   }, [canManage, formData.userId, isAdmin, user?.id, usersData?.data]);
 
   useEffect(() => {
-    setFormData((prev) => ({
-      ...prev,
-      period: formatPeriodFromDate(prev.paymentDate) || prev.period,
-    }));
-  }, [formData.paymentDate]);
+    const period = `${periodMonth} ${periodYear}`;
+    setFormData((prev) => (prev.period === period ? prev : { ...prev, period }));
+  }, [periodMonth, periodYear]);
 
   const handleSubmit = async () => {
     if (!formData.userId || !formData.period || formData.amount <= 0) {
@@ -79,12 +95,16 @@ export default function CreateSalaryScreen() {
     }
 
     try {
+      const paymentDateIso = toIsoFromInputDate(formData.paymentDate);
+      if (!paymentDateIso) {
+        setError('Date de paiement invalide');
+        return;
+      }
       const payload: CreateSalaryRequest = {
         userId: formData.userId,
         amount: Number(formData.amount) || 0,
-        period: formatPeriodFromDate(formData.paymentDate),
-        // Backend requires ISO date format.
-        paymentDate: new Date(formData.paymentDate).toISOString(),
+        period: formData.period.trim(),
+        paymentDate: paymentDateIso,
         notes: formData.notes?.trim() || undefined,
       };
       await createMutation.mutateAsync(payload);
@@ -141,13 +161,39 @@ export default function CreateSalaryScreen() {
             />
           )}
 
-          <TextInput
-            label="Période *"
-            value={formData.period}
-            mode="outlined"
-            style={[styles.input, styles.readonlyInput]}
-            disabled
-          />
+          <View style={styles.periodRow}>
+            <View style={styles.periodPicker}>
+              <Text variant="bodySmall" style={styles.periodLabel}>
+                Mois *
+              </Text>
+              <Picker
+                selectedValue={periodMonth}
+                onValueChange={(value) => setPeriodMonth(String(value))}
+                style={styles.picker}
+                itemStyle={styles.pickerItem}
+              >
+                {MONTH_OPTIONS.map((item) => (
+                  <Picker.Item key={item.value} label={item.label} value={item.value} />
+                ))}
+              </Picker>
+            </View>
+            <View style={styles.periodPicker}>
+              <Text variant="bodySmall" style={styles.periodLabel}>
+                Année *
+              </Text>
+              <Picker
+                selectedValue={periodYear}
+                onValueChange={(value) => setPeriodYear(String(value))}
+                style={styles.picker}
+                itemStyle={styles.pickerItem}
+              >
+                {Array.from({ length: 6 }).map((_, idx) => {
+                  const year = String(today.getFullYear() - 2 + idx);
+                  return <Picker.Item key={year} label={year} value={year} />;
+                })}
+              </Picker>
+            </View>
+          </View>
 
           <TextInput
             label="Date de paiement *"
@@ -224,6 +270,24 @@ const styles = StyleSheet.create({
   },
   pickerItem: {
     fontSize: 14,
+  },
+  periodRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  periodPicker: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: Spacing.xs,
+    paddingTop: Spacing.xs,
+  },
+  periodLabel: {
+    marginLeft: Spacing.xs,
+    opacity: 0.7,
   },
   submitButton: {
     marginTop: Spacing.md,

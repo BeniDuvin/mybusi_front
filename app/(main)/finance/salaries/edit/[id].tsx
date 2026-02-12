@@ -7,10 +7,26 @@ import { salaryService } from '@/services/finance.service';
 import type { CreateSalaryRequest } from '@/types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+
+const MONTH_OPTIONS = [
+  { label: 'Janvier', value: 'Janvier' },
+  { label: 'Février', value: 'Février' },
+  { label: 'Mars', value: 'Mars' },
+  { label: 'Avril', value: 'Avril' },
+  { label: 'Mai', value: 'Mai' },
+  { label: 'Juin', value: 'Juin' },
+  { label: 'Juillet', value: 'Juillet' },
+  { label: 'Août', value: 'Août' },
+  { label: 'Septembre', value: 'Septembre' },
+  { label: 'Octobre', value: 'Octobre' },
+  { label: 'Novembre', value: 'Novembre' },
+  { label: 'Décembre', value: 'Décembre' },
+];
 
 export default function EditSalaryScreen() {
   const theme = useTheme();
@@ -36,15 +52,33 @@ export default function EditSalaryScreen() {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const today = new Date();
+  const defaultMonthLabel = MONTH_OPTIONS[today.getMonth()]?.value || 'Janvier';
+  const [periodMonth, setPeriodMonth] = useState(defaultMonthLabel);
+  const [periodYear, setPeriodYear] = useState(String(today.getFullYear()));
 
   const formatPeriodFromDate = (dateValue: string) => {
     const date = new Date(dateValue);
     if (Number.isNaN(date.getTime())) return '';
-    const formatted = new Intl.DateTimeFormat('fr-FR', {
-      month: 'long',
-      year: 'numeric',
-    }).format(date);
-    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+    const monthLabel = MONTH_OPTIONS[date.getMonth()]?.value || '';
+    return monthLabel ? `${monthLabel} ${date.getFullYear()}` : '';
+  };
+
+  const normalizeDateInput = (dateValue: string) => {
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toISOString().slice(0, 10);
+  };
+
+  const toIsoFromInputDate = (dateValue: string) => {
+    const parts = dateValue.split('-').map((part) => Number(part));
+    if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+      return null;
+    }
+    const [year, month, day] = parts;
+    if (!year || !month || !day) return null;
+    return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0)).toISOString();
   };
 
   const getErrorMessage = (value: unknown, fallback: string) => {
@@ -66,9 +100,14 @@ export default function EditSalaryScreen() {
           userId: salary.userId,
           amount: salary.amount,
           period: formatPeriodFromDate(salary.paymentDate) || salary.period,
-          paymentDate: salary.paymentDate || new Date().toISOString().split('T')[0],
+          paymentDate: normalizeDateInput(salary.paymentDate) || new Date().toISOString().split('T')[0],
           notes: salary.notes || '',
         });
+        const loadedDate = new Date(salary.paymentDate || new Date().toISOString());
+        if (!Number.isNaN(loadedDate.getTime())) {
+          setPeriodMonth(MONTH_OPTIONS[loadedDate.getMonth()]?.value || defaultMonthLabel);
+          setPeriodYear(String(loadedDate.getFullYear()));
+        }
       } catch (err: any) {
         setError(getErrorMessage(err?.response?.data?.message, 'Erreur lors du chargement'));
       } finally {
@@ -76,7 +115,7 @@ export default function EditSalaryScreen() {
       }
     };
     load();
-  }, [id]);
+  }, [defaultMonthLabel, id]);
 
   useEffect(() => {
     if (!canManage) return;
@@ -89,25 +128,27 @@ export default function EditSalaryScreen() {
   }, [canManage, formData.userId, isAdmin, user?.id, usersData?.data]);
 
   useEffect(() => {
-    setFormData((prev) => ({
-      ...prev,
-      period: formatPeriodFromDate(prev.paymentDate) || prev.period,
-    }));
-  }, [formData.paymentDate]);
+    const period = `${periodMonth} ${periodYear}`;
+    setFormData((prev) => (prev.period === period ? prev : { ...prev, period }));
+  }, [periodMonth, periodYear]);
 
   const handleSubmit = async () => {
     if (!id) return;
-    if (!formData.userId || !formData.period || formData.amount <= 0) {
+    if (!formData.period || formData.amount <= 0) {
       setError('Veuillez remplir les champs obligatoires');
       return;
     }
 
     try {
-      const payload: Partial<CreateSalaryRequest> = {
-        userId: formData.userId,
+      const paymentDateIso = toIsoFromInputDate(formData.paymentDate);
+      if (!paymentDateIso) {
+        setError('Date de paiement invalide');
+        return;
+      }
+      const payload: Partial<Omit<CreateSalaryRequest, 'userId'>> = {
         amount: Number(formData.amount) || 0,
-        period: formatPeriodFromDate(formData.paymentDate),
-        paymentDate: new Date(formData.paymentDate).toISOString(),
+        period: formData.period.trim(),
+        paymentDate: paymentDateIso,
         notes: formData.notes?.trim() || undefined,
       };
       await updateMutation.mutateAsync({ id, data: payload });
@@ -172,21 +213,71 @@ export default function EditSalaryScreen() {
             />
           )}
 
-          <TextInput
-            label="Période *"
-            value={formData.period}
-            mode="outlined"
-            style={[styles.input, styles.readonlyInput]}
-            disabled
-          />
+          <View style={styles.periodRow}>
+            <View style={styles.periodPicker}>
+              <Text variant="bodySmall" style={styles.periodLabel}>
+                Mois *
+              </Text>
+              <Picker
+                selectedValue={periodMonth}
+                onValueChange={(value) => setPeriodMonth(String(value))}
+                style={styles.picker}
+                itemStyle={styles.pickerItem}
+              >
+                {MONTH_OPTIONS.map((item) => (
+                  <Picker.Item key={item.value} label={item.label} value={item.value} />
+                ))}
+              </Picker>
+            </View>
+            <View style={styles.periodPicker}>
+              <Text variant="bodySmall" style={styles.periodLabel}>
+                Année *
+              </Text>
+              <Picker
+                selectedValue={periodYear}
+                onValueChange={(value) => setPeriodYear(String(value))}
+                style={styles.picker}
+                itemStyle={styles.pickerItem}
+              >
+                {Array.from({ length: 6 }).map((_, idx) => {
+                  const year = String(today.getFullYear() - 2 + idx);
+                  return <Picker.Item key={year} label={year} value={year} />;
+                })}
+              </Picker>
+            </View>
+          </View>
 
           <TextInput
             label="Date de paiement *"
             value={formData.paymentDate}
-            onChangeText={(text) => setFormData({ ...formData, paymentDate: text })}
             mode="outlined"
-            style={styles.input}
+            style={[styles.input, styles.readonlyInput]}
+            disabled
           />
+          <Button mode="outlined" onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
+            Choisir la date de paiement
+          </Button>
+
+          {showDatePicker && (
+            <DateTimePicker
+              value={formData.paymentDate ? new Date(formData.paymentDate) : new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
+                if (Platform.OS !== 'ios') {
+                  setShowDatePicker(false);
+                }
+                if (event.type === 'dismissed') {
+                  setShowDatePicker(false);
+                  return;
+                }
+                if (selectedDate) {
+                  const nextDate = selectedDate.toISOString().slice(0, 10);
+                  setFormData((prev) => ({ ...prev, paymentDate: nextDate }));
+                }
+              }}
+            />
+          )}
 
           <TextInput
             label="Montant *"
@@ -256,8 +347,29 @@ const styles = StyleSheet.create({
   pickerItem: {
     fontSize: 14,
   },
+  periodRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  periodPicker: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: Spacing.xs,
+    paddingTop: Spacing.xs,
+  },
+  periodLabel: {
+    marginLeft: Spacing.xs,
+    opacity: 0.7,
+  },
   submitButton: {
     marginTop: Spacing.md,
+  },
+  dateButton: {
+    marginBottom: Spacing.md,
   },
   centered: {
     flex: 1,
