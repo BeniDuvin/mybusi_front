@@ -1,3 +1,4 @@
+import { useAuthContext } from '@/contexts/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
@@ -7,6 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function MainLayout() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { hasRole } = useAuthContext();
+  const canManage = hasRole(['ADMIN', 'GERANT']);
 
   const tabIcon = (name: React.ComponentProps<typeof MaterialCommunityIcons>['name']) => {
     return ({ focused }: { focused: boolean }) => (
@@ -53,21 +56,23 @@ export default function MainLayout() {
         }}
       />
       <Tabs.Screen
-        name="products"
-        options={{
-          title: 'Produits',
-          tabBarLabel: 'Produits',
-          tabBarIcon: tabIcon('cube-outline'),
-        }}
-      />
-      <Tabs.Screen
         name="purchases"
         options={{
           title: 'Achats',
-          tabBarLabel: 'Achats',
+          tabBarLabel: 'Achat',
           tabBarIcon: tabIcon('cart-arrow-down'),
         }}
       />
+      {canManage && (
+        <Tabs.Screen
+          name="expenses"
+          options={{
+            title: 'Dépenses',
+            tabBarLabel: 'Dépenses',
+            tabBarIcon: tabIcon('cash-minus'),
+          }}
+        />
+      )}
       <Tabs.Screen
         name="profile"
         options={{
@@ -77,11 +82,12 @@ export default function MainLayout() {
         }}
       />
 
+      <Tabs.Screen name="payments/index" options={{ href: null }} />
+      <Tabs.Screen name="products" options={{ href: null }} />
       <Tabs.Screen name="depots" options={{ href: null }} />
       <Tabs.Screen name="clients" options={{ href: null }} />
       <Tabs.Screen name="finance" options={{ href: null }} />
       <Tabs.Screen name="users/index" options={{ href: null }} />
-      <Tabs.Screen name="payments/index" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
       <Tabs.Screen name="help" options={{ href: null }} />
       <Tabs.Screen name="about" options={{ href: null }} />

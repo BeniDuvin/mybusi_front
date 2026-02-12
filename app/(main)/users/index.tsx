@@ -78,12 +78,20 @@ export default function UsersListScreen() {
   };
 
   const handleCreate = async () => {
-    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
-      setError('Prénom, nom et email sont obligatoires');
+    if (!form.firstName.trim() || !form.lastName.trim()) {
+      setError('Prénom et nom sont obligatoires');
       return;
     }
-    if (!isValidEmail(form.email.trim())) {
+    if (!form.email.trim() && !form.phone.trim()) {
+      setError('Email ou téléphone obligatoire');
+      return;
+    }
+    if (form.email.trim() && !isValidEmail(form.email.trim())) {
       setError('Email invalide');
+      return;
+    }
+    if (!form.password.trim() || form.password.length < 6) {
+      setError('Le mot de passe est obligatoire (min. 6 caractères)');
       return;
     }
     if (form.phone.trim() && !isValidPhone(form.phone.trim())) {
@@ -94,10 +102,10 @@ export default function UsersListScreen() {
       await createUser.mutateAsync({
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
-        email: form.email.trim(),
+        email: form.email.trim() || undefined,
         phone: form.phone.trim() || undefined,
         role: form.role,
-        password: form.password.trim() || undefined,
+        password: form.password.trim(),
         isActive: form.isActive,
       });
       setSuccess('Utilisateur créé');
@@ -105,7 +113,12 @@ export default function UsersListScreen() {
       resetForm();
       refetch();
     } catch (err: any) {
-      const serverMessage = err?.response?.data?.message;
+      const data = err?.response?.data;
+      const serverMessage =
+        data?.message ||
+        (Array.isArray(data?.message) ? data.message.join(', ') : null) ||
+        data?.error ||
+        'Erreur lors de la création';
       setError(serverMessage || 'Erreur lors de la création');
     }
   };
@@ -253,12 +266,13 @@ export default function UsersListScreen() {
               style={styles.input}
             />
             <TextInput
-              label="Email *"
+              label="Email"
               value={form.email}
               onChangeText={(value) => setForm((prev) => ({ ...prev, email: value }))}
               mode="outlined"
               autoCapitalize="none"
               keyboardType="email-address"
+              placeholder="Email ou téléphone requis"
               style={styles.input}
             />
             <TextInput
@@ -267,6 +281,7 @@ export default function UsersListScreen() {
               onChangeText={(value) => setForm((prev) => ({ ...prev, phone: value }))}
               mode="outlined"
               keyboardType="phone-pad"
+              placeholder="+242 XX XXX XX XX"
               style={styles.input}
             />
             <View style={styles.pickerContainer}>
@@ -287,11 +302,12 @@ export default function UsersListScreen() {
               </Picker>
             </View>
             <TextInput
-              label="Mot de passe (optionnel)"
+              label="Mot de passe *"
               value={form.password}
               onChangeText={(value) => setForm((prev) => ({ ...prev, password: value }))}
               mode="outlined"
               secureTextEntry
+              placeholder="Min. 6 caractères"
               style={styles.input}
             />
             <View style={styles.switchRow}>

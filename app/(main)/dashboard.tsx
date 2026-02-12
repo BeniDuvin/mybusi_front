@@ -2,23 +2,24 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { KPICard } from '@/components/ui/KPICard';
 import { BorderRadius, Shadows, Spacing } from '@/constants/theme';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { useFinanceDashboard, useFinanceSummary } from '@/hooks/useFinance';
-import { useSales } from '@/hooks/useSales';
-import { usePurchases } from '@/hooks/usePurchases';
 import { useDepots } from '@/hooks/useDepots';
-import { useLowStockProducts } from '@/hooks/useProducts';
+import { useExpenses, useFinanceDashboard, useFinanceSummary } from '@/hooks/useFinance';
+import { useLowStockProducts, useProducts } from '@/hooks/useProducts';
+import { usePurchases } from '@/hooks/usePurchases';
+import { useSales } from '@/hooks/useSales';
+import { stockService } from '@/services/stock.service';
 import { useAppStore } from '@/stores/app.store';
+import type { Purchase, Sale } from '@/types';
 import { formatCurrency } from '@/utils/format';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
+import { useFocusEffect } from '@react-navigation/native';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Dimensions, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Card, FAB, SegmentedButtons, Text, useTheme } from 'react-native-paper';
-import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
-import { useQuery } from '@tanstack/react-query';
-import { stockService } from '@/services/stock.service';
 
 export default function DashboardScreen() {
   const theme = useTheme();
@@ -42,7 +43,7 @@ export default function DashboardScreen() {
   }) => {
     const stockFromArray = selectedDepotId
       ? product.stocks?.find((stock) => stock.depotId === selectedDepotId)?.quantity
-      : product.stocks?.[0]?.quantity;
+      : product.stocks?.reduce((sum, stock) => sum + (stock.quantity || 0), 0);
     return (
       stockFromArray ??
       product.quantity ??
@@ -120,6 +121,18 @@ export default function DashboardScreen() {
     refetch: refetchLowStock,
   } = useLowStockProducts(selectedDepotId || undefined);
 
+  const { data: productsData, refetch: refetchProducts } = useProducts({
+    depotId: selectedDepotId || undefined,
+    limit: 1000,
+  });
+
+  const { data: monthExpensesData, isLoading: isExpensesLoading, refetch: refetchExpenses } = useExpenses({
+    depotId: selectedDepotId || undefined,
+    startDate: monthParams.startDate,
+    endDate: monthParams.endDate,
+    limit: 1000,
+  });
+
   const { data: depots } = useDepots();
 
   const { data: stockData, refetch: refetchStock } = useQuery({
@@ -147,8 +160,9 @@ export default function DashboardScreen() {
     pendingOrdersCount: toNumber(dashboardData?.pendingOrdersCount),
   };
 
-  const getValueOrFallback = (value: unknown, fallback: number) => {
-    return value === null || value === undefined ? fallback : toNumber(value);
+  const getPreferredMetric = (value: unknown, fallback: number) => {
+    const apiValue = toNumber(value);
+    return apiValue > 0 ? apiValue : fallback;
   };
 
   const onRefresh = React.useCallback(async () => {
@@ -161,6 +175,8 @@ export default function DashboardScreen() {
       refetchMonthSummary(),
       refetchPurchases(),
       refetchSales(),
+      refetchProducts(),
+      refetchExpenses(),
     ]);
     setRefreshing(false);
   }, [
@@ -171,6 +187,8 @@ export default function DashboardScreen() {
     refetchMonthSummary,
     refetchPurchases,
     refetchSales,
+    refetchProducts,
+    refetchExpenses,
   ]);
 
   useFocusEffect(
@@ -181,6 +199,8 @@ export default function DashboardScreen() {
         refetchMonthSummary();
         refetchPurchases();
         refetchSales();
+        refetchProducts();
+        refetchExpenses();
       }
       refetchLowStock();
       refetchStock();
@@ -191,12 +211,14 @@ export default function DashboardScreen() {
       refetchMonthSummary,
       refetchPurchases,
       refetchSales,
+      refetchProducts,
+      refetchExpenses,
       refetchLowStock,
       refetchStock,
     ])
   );
 
-  const getPurchaseTotal = (purchase: (typeof purchasesData)['data'][number]) => {
+  const getPurchaseTotal = (purchase: Purchase) => {
     const total = toNumber(purchase?.total);
     if (total > 0) return total;
     return (purchase?.lines || []).reduce(
@@ -242,7 +264,7 @@ export default function DashboardScreen() {
     monthParams.endDate,
   ]);
 
-  const getSaleTotal = (sale: (typeof salesData)['data'][number]) => {
+  const getSaleTotal = (sale: Sale) => {
     const total = toNumber(sale?.total);
     if (total > 0) return total;
     const subtotal = (sale?.lines || []).reduce((sum, line) => {
@@ -290,24 +312,36 @@ export default function DashboardScreen() {
     monthParams.endDate,
   ]);
 
-  const todaySalesValue = getValueOrFallback(dashboardData?.todaySales, salesStats.todayCount);
-  const monthSalesValue = getValueOrFallback(dashboardData?.monthSales, salesStats.monthCount);
-  const todayRevenueValue = getValueOrFallback(
+  const totalAvailableStock = useMemo(() => {
+    return (productsData?.data || []).reduce((sum, product) => sum + getCurrentStock(product), 0);
+  }, [productsData?.data, selectedDepotId]);
+
+  const monthExpensesValue = useMemo(() => {
+    return (monthExpensesData?.data || []).reduce(
+      (sum, expense) => sum + toNumber(expense.amount),
+      0
+    );
+  }, [monthExpensesData?.data]);
+
+  const todaySalesValue = getPreferredMetric(dashboardData?.todaySales, salesStats.todayCount);
+  const monthSalesValue = getPreferredMetric(dashboardData?.monthSales, salesStats.monthCount);
+  const todayRevenueValue = getPreferredMetric(
     dashboardData?.todayRevenue,
     salesStats.todayAmount
   );
-  const monthRevenueValue = getValueOrFallback(
+  const monthRevenueValue = getPreferredMetric(
     dashboardData?.monthRevenue,
     salesStats.monthAmount
   );
-  const todayPurchaseAmount = getValueOrFallback(
+  const todayPurchaseAmount = getPreferredMetric(
     todaySummary?.totalPurchases,
     purchaseStats.todayAmount
   );
-  const monthPurchaseAmount = getValueOrFallback(
+  const monthPurchaseAmount = getPreferredMetric(
     monthSummary?.totalPurchases,
     purchaseStats.monthAmount
   );
+  const monthNetResult = monthRevenueValue - monthPurchaseAmount - monthExpensesValue;
 
   const chartData = statsTab === 'sales'
     ? [
@@ -435,11 +469,11 @@ export default function DashboardScreen() {
               onPress={() => router.push('/products?tab=low-stock')}
             />
             <KPICard
-              title="Commandes en attente"
-              value={canViewFinance ? safeDashboard.pendingOrdersCount : '—'}
-              icon="clock-outline"
+              title="Stock dispo"
+              value={canViewFinance ? totalAvailableStock : '—'}
+              icon="warehouse"
               iconColor="#FF9800"
-              subtitle={canViewFinance ? 'À traiter' : 'Accès limité'}
+              subtitle={canViewFinance ? 'Quantité totale disponible' : 'Accès limité'}
             />
           </View>
         </View>
@@ -468,7 +502,8 @@ export default function DashboardScreen() {
               isTodaySummaryLoading ||
               isMonthSummaryLoading ||
               isPurchasesLoading ||
-              isSalesLoading ? (
+              isSalesLoading ||
+              isExpensesLoading ? (
                 <View style={styles.loadingRow}>
                   <ActivityIndicator />
                   <Text variant="bodyMedium" style={styles.loadingText}>
@@ -509,6 +544,44 @@ export default function DashboardScreen() {
             </Card.Content>
           </Card>
         )}
+
+        <View style={styles.sectionHeader}>
+          <MaterialCommunityIcons name="file-chart-outline" size={18} color={theme.colors.primary} />
+          <Text variant="titleMedium" style={styles.sectionHeaderText}>
+            Résumé (Mois en cours)
+          </Text>
+        </View>
+
+        <Card style={styles.chartCard}>
+          <Card.Content>
+            <View style={styles.summaryRow}>
+              <Text variant="bodyMedium">Ventes</Text>
+              <Text variant="bodyMedium">{formatCurrency(monthRevenueValue)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text variant="bodyMedium">Achats</Text>
+              <Text variant="bodyMedium">{formatCurrency(monthPurchaseAmount)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text variant="bodyMedium">Dépenses</Text>
+              <Text variant="bodyMedium">{formatCurrency(monthExpensesValue)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text variant="titleSmall" style={styles.resultLabel}>
+                Résultat
+              </Text>
+              <Text
+                variant="titleSmall"
+                style={[
+                  styles.resultLabel,
+                  { color: monthNetResult >= 0 ? theme.colors.primary : theme.colors.error },
+                ]}
+              >
+                {formatCurrency(monthNetResult)}
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
 
         <View style={styles.sectionHeader}>
           <MaterialCommunityIcons name="alert" size={18} color={theme.colors.error} />
@@ -688,6 +761,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 10,
     opacity: 0.8,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
+  },
+  resultLabel: {
+    fontWeight: 'bold',
   },
   fab: {
     position: 'absolute',

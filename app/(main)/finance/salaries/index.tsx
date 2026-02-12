@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSalaries, useDeleteSalary } from '@/hooks/useFinance';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { Spacing } from '@/constants/theme';
@@ -23,6 +24,8 @@ import type { SalaryPayment } from '@/types';
 export default function SalariesListScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { hasRole } = useAuthContext();
+  const canManage = hasRole(['ADMIN', 'GERANT']);
 
   const [page, setPage] = useState(1);
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
@@ -89,6 +92,14 @@ export default function SalariesListScreen() {
       </Card.Content>
     </Card>
   );
+
+  if (!canManage) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ErrorMessage message="Accès réservé aux administrateurs et gérants." />
+      </SafeAreaView>
+    );
+  }
 
   if (error) {
     return (

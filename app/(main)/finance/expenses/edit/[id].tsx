@@ -1,5 +1,7 @@
 import { Spacing } from '@/constants/theme';
 import { useUpdateExpense } from '@/hooks/useFinance';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { expenseService } from '@/services/finance.service';
 import type { CreateExpenseRequest } from '@/types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -11,8 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function EditExpenseScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id: idParam } = useLocalSearchParams<{ id?: string | string[] }>();
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const updateMutation = useUpdateExpense();
+  const { hasRole } = useAuthContext();
+  const canManage = hasRole(['ADMIN', 'GERANT']);
 
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<CreateExpenseRequest>({
@@ -24,6 +29,16 @@ export default function EditExpenseScreen() {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const getErrorMessage = (value: unknown, fallback: string) => {
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item)).join(', ');
+    }
+    if (typeof value === 'string') {
+      return value;
+    }
+    return fallback;
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -38,7 +53,7 @@ export default function EditExpenseScreen() {
           reference: expense.reference || '',
         });
       } catch (err: any) {
-        setError(err.response?.data?.message || 'Erreur lors du chargement');
+        setError(getErrorMessage(err?.response?.data?.message, 'Erreur lors du chargement'));
       } finally {
         setLoading(false);
       }
@@ -54,7 +69,13 @@ export default function EditExpenseScreen() {
     }
 
     try {
-      await updateMutation.mutateAsync({ id, data: formData });
+      const payload = {
+        category: formData.category.trim(),
+        amount: Number(formData.amount) || 0,
+        description: formData.description?.trim() || undefined,
+        reference: formData.reference?.trim() || undefined,
+      };
+      await updateMutation.mutateAsync({ id, data: payload });
       setSuccess('Dépense mise à jour');
       setTimeout(() => {
         if (router.canGoBack()) {
@@ -64,7 +85,7 @@ export default function EditExpenseScreen() {
         }
       }, 1200);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Erreur lors de la mise à jour');
+      setError(getErrorMessage(err?.response?.data?.message, 'Erreur lors de la mise à jour'));
     }
   };
 
@@ -78,6 +99,9 @@ export default function EditExpenseScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {!canManage ? (
+        <ErrorMessage message="Accès réservé aux administrateurs et gérants." />
+      ) : (
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -132,6 +156,7 @@ export default function EditExpenseScreen() {
           </Button>
         </ScrollView>
       </KeyboardAvoidingView>
+      )}
 
       <Snackbar visible={!!error} onDismiss={() => setError('')} duration={3000}>
         {error}

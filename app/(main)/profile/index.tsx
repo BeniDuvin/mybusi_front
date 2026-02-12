@@ -3,8 +3,16 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { ROLE_LABELS } from '@/utils/constants';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
-import { Avatar, Button, Card, Divider, List, Text, useTheme } from 'react-native-paper';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import {
+  Avatar,
+  Button,
+  Card,
+  Divider,
+  List,
+  Text,
+  useTheme
+} from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
@@ -12,6 +20,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, signOut, hasRole } = useAuthContext();
   const isAdmin = hasRole(['ADMIN']);
+  const canManage = hasRole(['ADMIN', 'GERANT']);
 
   const handleLogout = async () => {
     await signOut();
@@ -21,24 +30,34 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Card style={styles.profileCard}>
-          <Card.Content style={styles.profileHeader}>
-            <Avatar.Text
-              size={80}
-              label={user?.firstName?.[0] || 'U'}
-              style={styles.avatar}
-            />
-            <Text variant="headlineSmall" style={styles.userName}>
-              {user?.firstName} {user?.lastName}
-            </Text>
-            <Text variant="bodyMedium" style={styles.userEmail}>
-              {user?.email}
-            </Text>
-            <Text variant="bodySmall" style={styles.userRole}>
-              {user?.role && ROLE_LABELS[user.role]}
-            </Text>
-          </Card.Content>
-        </Card>
+        <Pressable
+          onPress={() => router.push('/profile/edit')}
+          style={({ pressed }) => [
+            styles.profileCardWrapper,
+            pressed && { opacity: 0.85 },
+          ]}
+        >
+          <Card style={styles.profileCard}>
+            <Card.Content style={styles.profileHeader}>
+              
+              <Avatar.Text
+                size={80}
+                label={user?.firstName?.[0] || 'U'}
+                style={styles.avatar}
+              />
+              <Text variant="bodyMedium" style={styles.userName}>
+                {user?.firstName} {user?.lastName}
+              </Text>
+              <Text variant="bodyMedium" style={styles.userEmail}>
+                {user?.email}
+              </Text>
+              <Text variant="bodySmall" style={styles.userRole}>
+                {user?.role && ROLE_LABELS[user.role]}
+              </Text>
+              
+            </Card.Content>
+          </Card>
+        </Pressable>
 
         <Card style={styles.infoCard}>
           <List.Item
@@ -87,25 +106,29 @@ export default function ProfileScreen() {
           />
         </Card>
 
-        {isAdmin && (
+        {canManage && (
           <Card style={styles.adminCard}>
             <Text variant="titleSmall" style={styles.adminTitle}>
-              Administration
+              Gestion
             </Text>
+            {isAdmin && (
+              <>
+                <List.Item
+                  title="Gestion des utilisateurs"
+                  description="Rôles et activation des comptes"
+                  left={(props) => <List.Icon {...props} icon="account-group-outline" />}
+                  right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                  onPress={() => router.push('/users')}
+                />
+                <Divider />
+              </>
+            )}
             <List.Item
-              title="Paiements en attente"
-              description="Valider ou vérifier les paiements"
-              left={(props) => <List.Icon {...props} icon="credit-card-outline" />}
+              title="Gestion des produits"
+              description="Créer et gérer les produits"
+              left={(props) => <List.Icon {...props} icon="cube-outline" />}
               right={(props) => <List.Icon {...props} icon="chevron-right" />}
-              onPress={() => router.push('/payments')}
-            />
-            <Divider />
-            <List.Item
-              title="Gestion des utilisateurs"
-              description="Rôles et activation des comptes"
-              left={(props) => <List.Icon {...props} icon="account-group-outline" />}
-              right={(props) => <List.Icon {...props} icon="chevron-right" />}
-              onPress={() => router.push('/users')}
+              onPress={() => router.push('/products')}
             />
             <Divider />
             <List.Item
@@ -117,13 +140,25 @@ export default function ProfileScreen() {
             />
             <Divider />
             <List.Item
-              title="Gestion des dépôts"
-              description="Créer et gérer les dépôts"
-              left={(props) => <List.Icon {...props} icon="warehouse" />}
+              title="Transactions"
+              description="Ventes et achats par période"
+              left={(props) => <List.Icon {...props} icon="cash-multiple" />}
               right={(props) => <List.Icon {...props} icon="chevron-right" />}
-              onPress={() => router.push('/depots')}
+              onPress={() => router.push('/payments')}
             />
             <Divider />
+            {isAdmin && (
+              <>
+                <List.Item
+                  title="Gestion des dépôts"
+                  description="Créer et gérer les dépôts"
+                  left={(props) => <List.Icon {...props} icon="warehouse" />}
+                  right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                  onPress={() => router.push('/depots')}
+                />
+                <Divider />
+              </>
+            )}
             <List.Item
               title="Fournisseurs"
               description="Créer et gérer les fournisseurs"
@@ -171,12 +206,21 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: Spacing.md,
   },
-  profileCard: {
+  profileCardWrapper: {
     marginBottom: Spacing.md,
+  },
+  profileCard: {
+    overflow: 'hidden',
   },
   profileHeader: {
     alignItems: 'center',
     paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.md,
+  },
+  editButtonWrapper: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
   },
   avatar: {
     marginBottom: Spacing.md,
@@ -191,6 +235,13 @@ const styles = StyleSheet.create({
   },
   userRole: {
     opacity: 0.6,
+    marginBottom: Spacing.xs,
+  },
+  modifierHintText: {
+    opacity: 0.6,
+  },
+  editIcon: {
+    margin: 0,
   },
   infoCard: {
     marginBottom: Spacing.md,

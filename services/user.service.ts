@@ -1,6 +1,11 @@
 import type { PaginatedResponse, Role, User } from '@/types';
 import { api } from './api';
 
+/**
+ * POST /users — Admin uniquement
+ * Body: email, phone?, password, firstName, lastName, role, isActive
+ * Règles: password min 6, firstName+lastName obligatoires, email OU phone obligatoire
+ */
 export const userService = {
   async getAll(params?: {
     page?: number;
@@ -22,15 +27,32 @@ export const userService = {
   },
 
   async create(data: {
-    email: string;
+    email?: string;
     phone?: string;
     firstName: string;
     lastName: string;
     role: Role;
-    password?: string;
+    password: string;
     isActive?: boolean;
   }): Promise<User> {
-    const response = await api.post<User>('/users', data);
+    const email = data.email?.trim();
+    const phone = data.phone?.trim();
+    if (!email && !phone) {
+      throw new Error('Email ou téléphone obligatoire');
+    }
+
+    const payload: Record<string, unknown> = {
+      password: data.password,
+      firstName: data.firstName.trim(),
+      lastName: data.lastName.trim(),
+      role: data.role || 'CLIENT',
+      isActive: data.isActive ?? true,
+    };
+
+    if (email) payload.email = email;
+    if (phone) payload.phone = phone;
+
+    const response = await api.post<User>('/users', payload);
     return response.data;
   },
 };

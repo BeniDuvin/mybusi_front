@@ -34,8 +34,25 @@ export const authService = {
   },
 
   async getMe(): Promise<User> {
-    const response = await api.get<User>('/auth/me');
-    return response.data;
+    try {
+      const response = await api.get<User>('/auth/me');
+      return response.data;
+    } catch (error: any) {
+      const status = error?.response?.status;
+      if (status !== 404) {
+        throw error;
+      }
+      const fallback = await api.get<User>('/users/me');
+      return fallback.data;
+    }
+  },
+
+  async updateProfile(
+    userId: string,
+    data: Partial<Pick<User, 'firstName' | 'lastName' | 'email' | 'phone'>>
+  ): Promise<User> {
+    const { userService } = await import('./user.service');
+    return userService.update(userId, data);
   },
 
   async logout(): Promise<void> {

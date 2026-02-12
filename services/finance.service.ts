@@ -15,8 +15,20 @@ export const financeService = {
     startDate?: string;
     endDate?: string;
   }): Promise<FinanceSummary> {
-    const response = await api.get<FinanceSummary>('/finance/summary', { params });
-    return response.data;
+    const response = await api.get<FinanceSummary | { data?: FinanceSummary }>('/finance/summary', {
+      params,
+    });
+    const raw = response.data;
+    const data = (raw as { data?: FinanceSummary })?.data ?? (raw as FinanceSummary);
+    const toNum = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+    return {
+      totalSales: toNum(data?.totalSales ?? (data as any)?.totalRevenue),
+      totalPurchases: toNum(data?.totalPurchases ?? (data as any)?.totalPurchase),
+      totalExpenses: toNum(data?.totalExpenses ?? (data as any)?.totalExpense),
+      totalSalaries: toNum(data?.totalSalaries ?? (data as any)?.totalSalary),
+      netProfit: toNum(data?.netProfit ?? (data as any)?.profit),
+      cashBalance: toNum(data?.cashBalance),
+    };
   },
 
   async getCashFlow(params?: {

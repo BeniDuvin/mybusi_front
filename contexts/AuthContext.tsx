@@ -9,6 +9,7 @@ type AuthContextType = {
   signIn: (accessToken: string, refreshToken: string, user: User) => Promise<void>;
   signOut: () => Promise<void>;
   hasRole: (roles: string[]) => boolean;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -27,9 +28,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const userData = await authService.getMe();
       setUser(userData);
+      await SecureStore.setItemAsync('user', JSON.stringify(userData));
     } catch (e) {
       console.error('Failed to load user:', e);
-      await authService.clearTokens();
+      const status = (e as any)?.response?.status;
+      if (status === 401) {
+        await authService.clearTokens();
+      } else {
+        const cached = await SecureStore.getItemAsync('user');
+        if (cached) {
+          try {
+            setUser(JSON.parse(cached));
+          } catch {
+            // ignore cache parse errors
+          }
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -39,6 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await SecureStore.setItemAsync('accessToken', accessToken);
     await SecureStore.setItemAsync('refreshToken', refreshToken);
     await SecureStore.setItemAsync('userId', userData.id);
+    await SecureStore.setItemAsync('user', JSON.stringify(userData));
     setUser(userData);
   };
 
@@ -48,6 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.error('Logout error:', e);
     } finally {
+      await SecureStore.deleteItemAsync('user');
       setUser(null);
     }
   };
@@ -56,12 +72,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return user ? roles.includes(user.role) : false;
   };
 
+  const refreshUser = async () => {
+    await loadUser();
+  };
+
   useEffect(() => {
     loadUser();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, hasRole }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signOut, hasRole, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

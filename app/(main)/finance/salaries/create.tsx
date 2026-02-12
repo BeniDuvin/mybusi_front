@@ -1,16 +1,27 @@
 import { Spacing } from '@/constants/theme';
 import { useCreateSalary } from '@/hooks/useFinance';
+import { useUsers } from '@/hooks/useUsers';
+import { useAuthContext } from '@/contexts/AuthContext';
 import type { CreateSalaryRequest } from '@/types';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 import { Button, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Picker } from '@react-native-picker/picker';
+import { ErrorMessage } from '@/components/ui/ErrorMessage';
 
 export default function CreateSalaryScreen() {
   const theme = useTheme();
   const router = useRouter();
   const createMutation = useCreateSalary();
+  const { user, hasRole } = useAuthContext();
+  const isAdmin = hasRole(['ADMIN']);
+  const canManage = hasRole(['ADMIN', 'GERANT']);
+  const { data: usersData } = useUsers(
+    { page: 1, limit: 200, isActive: true },
+    { enabled: isAdmin }
+  );
 
   const [formData, setFormData] = useState<CreateSalaryRequest>({
     userId: '',
@@ -21,6 +32,16 @@ export default function CreateSalaryScreen() {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    if (!canManage) return;
+    if (!formData.userId && user?.id && !isAdmin) {
+      setFormData((prev) => ({ ...prev, userId: user.id }));
+    }
+    if (isAdmin && !formData.userId && usersData?.data?.length) {
+      setFormData((prev) => ({ ...prev, userId: usersData.data[0].id }));
+    }
+  }, [canManage, formData.userId, isAdmin, user?.id, usersData?.data]);
 
   const handleSubmit = async () => {
     if (!formData.userId || !formData.period || formData.amount <= 0) {
@@ -45,6 +66,9 @@ export default function CreateSalaryScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {!canManage ? (
+        <ErrorMessage message="Accès réservé aux administrateurs et gérants." />
+      ) : (
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -54,13 +78,31 @@ export default function CreateSalaryScreen() {
             Nouveau salaire
           </Text>
 
-          <TextInput
-            label="Employé (ID) *"
-            value={formData.userId}
-            onChangeText={(text) => setFormData({ ...formData, userId: text })}
-            mode="outlined"
-            style={styles.input}
-          />
+          {isAdmin ? (
+            <Picker
+              selectedValue={formData.userId}
+              onValueChange={(value) => setFormData({ ...formData, userId: String(value) })}
+              style={styles.picker}
+              itemStyle={styles.pickerItem}
+            >
+              <Picker.Item label="Sélectionner un employé" value="" />
+              {usersData?.data?.map((item) => (
+                <Picker.Item
+                  key={item.id}
+                  label={`${item.firstName} ${item.lastName}`}
+                  value={item.id}
+                />
+              ))}
+            </Picker>
+          ) : (
+            <TextInput
+              label="Employé"
+              value={`${user?.firstName || ''} ${user?.lastName || ''}`.trim()}
+              mode="outlined"
+              style={[styles.input, styles.readonlyInput]}
+              disabled
+            />
+          )}
 
           <TextInput
             label="Période *"
@@ -107,6 +149,7 @@ export default function CreateSalaryScreen() {
           </Button>
         </ScrollView>
       </KeyboardAvoidingView>
+      )}
 
       <Snackbar visible={!!error} onDismiss={() => setError('')} duration={3000}>
         {error}
@@ -138,6 +181,12 @@ const styles = StyleSheet.create({
   },
   readonlyInput: {
     opacity: 0.7,
+  },
+  picker: {
+    marginBottom: Spacing.md,
+  },
+  pickerItem: {
+    fontSize: 14,
   },
   submitButton: {
     marginTop: Spacing.md,

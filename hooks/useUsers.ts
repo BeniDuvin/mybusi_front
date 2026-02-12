@@ -2,16 +2,22 @@ import { userService } from '@/services/user.service';
 import type { Role, User } from '@/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-export const useUsers = (params?: {
-  page?: number;
-  limit?: number;
-  search?: string;
-  role?: Role;
-  isActive?: boolean;
-}) => {
+export const useUsers = (
+  params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    role?: Role;
+    isActive?: boolean;
+  },
+  options?: {
+    enabled?: boolean;
+  }
+) => {
   return useQuery({
     queryKey: ['users', params],
     queryFn: () => userService.getAll(params),
+    enabled: options?.enabled !== false,
   });
 };
 
@@ -33,12 +39,12 @@ export const useCreateUser = () => {
 
   return useMutation({
     mutationFn: (data: {
-      email: string;
+      email?: string;
       phone?: string;
       firstName: string;
       lastName: string;
       role: Role;
-      password?: string;
+      password: string;
       isActive?: boolean;
     }) => userService.create(data),
     onSuccess: () => {
