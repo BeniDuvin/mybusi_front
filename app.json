@@ -49,7 +49,11 @@
       "expo-secure-store"
     ],
     "extra": {
-      "apiBaseUrl": "http://YOUR_LOCAL_IP:3000/api/v1"
+      "apiBaseUrl": "https://mydepotbackend.onrender.com/api/v1",
+      "router": {},
+      "eas": {
+        "projectId": "7b91050a-7e30-43ba-9888-bbc7568ba343"
+      }
     },
     "experiments": {
       "typedRoutes": true,
