@@ -55,14 +55,16 @@ export default function MainLayout() {
           tabBarIcon: tabIcon('cart'),
         }}
       />
-      <Tabs.Screen
-        name="purchases"
-        options={{
-          title: 'Achats',
-          tabBarLabel: 'Achat',
-          tabBarIcon: tabIcon('cart-arrow-down'),
-        }}
-      />
+      {canManage && (
+        <Tabs.Screen
+          name="other-incomes"
+          options={{
+            title: "Entrées d'argent",
+            tabBarLabel: 'Entrées',
+            tabBarIcon: tabIcon('cash-plus'),
+          }}
+        />
+      )}
       {canManage && (
         <Tabs.Screen
           name="expenses"
@@ -73,6 +75,14 @@ export default function MainLayout() {
           }}
         />
       )}
+      <Tabs.Screen
+        name="purchases"
+        options={{
+          title: 'Achats',
+          tabBarLabel: 'Achat',
+          tabBarIcon: tabIcon('cart-arrow-down'),
+        }}
+      />
       <Tabs.Screen
         name="profile"
         options={{

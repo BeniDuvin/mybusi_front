@@ -148,6 +148,14 @@ export default function ProfileScreen() {
             />
             <Divider />
             <List.Item
+              title="Autres entrées"
+              description="Gérer les entrées d'argent hors ventes"
+              left={(props) => <List.Icon {...props} icon="cash-plus" />}
+              right={(props) => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => router.push('/finance/other-incomes')}
+            />
+            <Divider />
+            <List.Item
               title="Transactions"
               description="Ventes et achats par période"
               left={(props) => <List.Icon {...props} icon="cash-multiple" />}

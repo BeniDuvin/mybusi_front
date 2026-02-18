@@ -3,7 +3,7 @@ import { KPICard } from '@/components/ui/KPICard';
 import { BorderRadius, Shadows, Spacing } from '@/constants/theme';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useDepots } from '@/hooks/useDepots';
-import { useExpenses, useFinanceDashboard, useFinanceSummary } from '@/hooks/useFinance';
+import { useExpenses, useFinanceDashboard, useFinanceSummary, useOtherIncomes } from '@/hooks/useFinance';
 import { useLowStockProducts, useProducts } from '@/hooks/useProducts';
 import { usePurchases } from '@/hooks/usePurchases';
 import { useSales } from '@/hooks/useSales';
@@ -132,6 +132,16 @@ export default function DashboardScreen() {
     endDate: monthParams.endDate,
     limit: 1000,
   });
+  const {
+    data: monthOtherIncomesData,
+    isLoading: isOtherIncomesLoading,
+    refetch: refetchOtherIncomes,
+  } = useOtherIncomes({
+    depotId: selectedDepotId || undefined,
+    startDate: monthParams.startDate,
+    endDate: monthParams.endDate,
+    limit: 1000,
+  });
 
   const { data: depots } = useDepots();
 
@@ -177,6 +187,7 @@ export default function DashboardScreen() {
       refetchSales(),
       refetchProducts(),
       refetchExpenses(),
+      refetchOtherIncomes(),
     ]);
     setRefreshing(false);
   }, [
@@ -189,6 +200,7 @@ export default function DashboardScreen() {
     refetchSales,
     refetchProducts,
     refetchExpenses,
+    refetchOtherIncomes,
   ]);
 
   useFocusEffect(
@@ -201,6 +213,7 @@ export default function DashboardScreen() {
         refetchSales();
         refetchProducts();
         refetchExpenses();
+        refetchOtherIncomes();
       }
       refetchLowStock();
       refetchStock();
@@ -213,6 +226,7 @@ export default function DashboardScreen() {
       refetchSales,
       refetchProducts,
       refetchExpenses,
+      refetchOtherIncomes,
       refetchLowStock,
       refetchStock,
     ])
@@ -322,6 +336,12 @@ export default function DashboardScreen() {
       0
     );
   }, [monthExpensesData?.data]);
+  const monthOtherIncomesValue = useMemo(() => {
+    return (monthOtherIncomesData?.data || []).reduce(
+      (sum, income) => sum + toNumber(income.amount),
+      0
+    );
+  }, [monthOtherIncomesData?.data]);
 
   const todaySalesValue = getPreferredMetric(dashboardData?.todaySales, salesStats.todayCount);
   const monthSalesValue = getPreferredMetric(dashboardData?.monthSales, salesStats.monthCount);
@@ -341,7 +361,7 @@ export default function DashboardScreen() {
     monthSummary?.totalPurchases,
     purchaseStats.monthAmount
   );
-  const monthNetResult = monthRevenueValue - monthPurchaseAmount - monthExpensesValue;
+  const monthNetResult = monthRevenueValue + monthOtherIncomesValue - monthPurchaseAmount - monthExpensesValue;
 
   const chartData = statsTab === 'sales'
     ? [
@@ -503,7 +523,8 @@ export default function DashboardScreen() {
               isMonthSummaryLoading ||
               isPurchasesLoading ||
               isSalesLoading ||
-              isExpensesLoading ? (
+              isExpensesLoading ||
+              isOtherIncomesLoading ? (
                 <View style={styles.loadingRow}>
                   <ActivityIndicator />
                   <Text variant="bodyMedium" style={styles.loadingText}>
@@ -557,6 +578,10 @@ export default function DashboardScreen() {
             <View style={styles.summaryRow}>
               <Text variant="bodyMedium">Ventes</Text>
               <Text variant="bodyMedium">{formatCurrency(monthRevenueValue)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text variant="bodyMedium">Autres entrées</Text>
+              <Text variant="bodyMedium">{formatCurrency(monthOtherIncomesValue)}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text variant="bodyMedium">Achats</Text>
@@ -689,10 +714,12 @@ const styles = StyleSheet.create({
   },
   filterPicker: {
     height: 36,
+    color: '#111827',
   },
   filterPickerItem: {
     height: 36,
     fontSize: 12,
+    color: '#111827',
   },
   kpiGrid: {
     marginBottom: Spacing.lg,

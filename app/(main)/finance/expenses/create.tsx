@@ -192,9 +192,11 @@ const styles = StyleSheet.create({
   },
   picker: {
     height: 48,
+    color: '#111827',
   },
   pickerItem: {
     fontSize: 14,
+    color: '#111827',
   },
   submitButton: {
     marginTop: Spacing.md,

@@ -680,10 +680,12 @@ const styles = StyleSheet.create({
   },
   periodPickerInput: {
     height: 36,
+    color: '#111827',
   },
   periodPickerItem: {
     height: 36,
     fontSize: 12,
+    color: '#111827',
   },
   filterItem: {
     flex: 1,
@@ -700,10 +702,12 @@ const styles = StyleSheet.create({
   },
   filterPicker: {
     height: 36,
+    color: '#111827',
   },
   filterPickerItem: {
     height: 36,
     fontSize: 12,
+    color: '#111827',
   },
   printButton: {
     marginBottom: 2,

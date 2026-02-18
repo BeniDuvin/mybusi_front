@@ -236,6 +236,8 @@ export default function CreatePurchaseScreen() {
                 setDepotId(value);
                 setSelectedDepotId(value || null);
               }}
+              style={styles.picker}
+              itemStyle={styles.pickerItem}
             >
               <Picker.Item label="Sélectionner un dépôt" value="" />
               {depots?.data?.map((depot) => (
@@ -248,7 +250,12 @@ export default function CreatePurchaseScreen() {
             <Text variant="bodyMedium" style={styles.pickerLabel}>
               Fournisseur *
             </Text>
-            <Picker selectedValue={supplierId} onValueChange={(value) => setSupplierId(value)}>
+            <Picker
+              selectedValue={supplierId}
+              onValueChange={(value) => setSupplierId(value)}
+              style={styles.picker}
+              itemStyle={styles.pickerItem}
+            >
               <Picker.Item label="Sélectionner un fournisseur" value="" />
               {suppliers?.data?.map((supplier) => (
                 <Picker.Item key={supplier.id} label={supplier.name} value={supplier.id} />
@@ -275,7 +282,12 @@ export default function CreatePurchaseScreen() {
                 <Text variant="bodyMedium" style={styles.pickerLabel}>
                   Produit *
                 </Text>
-                <Picker selectedValue={lineProductId} onValueChange={(value) => setLineProductId(value)}>
+                <Picker
+                  selectedValue={lineProductId}
+                  onValueChange={(value) => setLineProductId(value)}
+                  style={styles.picker}
+                  itemStyle={styles.pickerItem}
+                >
                   <Picker.Item label="Sélectionner un produit" value="" />
                   {products?.data?.map((product) => (
                     <Picker.Item key={product.id} label={product.name} value={product.id} />
@@ -312,6 +324,8 @@ export default function CreatePurchaseScreen() {
                 <Picker
                   selectedValue={linePackageType}
                   onValueChange={(value) => setLinePackageType(value as PackagingType)}
+                  style={styles.picker}
+                  itemStyle={styles.pickerItem}
                 >
                   <Picker.Item label="Unité" value="UNITE" />
                   <Picker.Item label="Casier" value="CASIER" />
@@ -500,6 +514,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.sm,
     opacity: 0.6,
+  },
+  picker: {
+    color: '#111827',
+  },
+  pickerItem: {
+    fontSize: 14,
+    color: '#111827',
   },
   card: {
     marginBottom: Spacing.md,

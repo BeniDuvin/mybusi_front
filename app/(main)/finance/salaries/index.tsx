@@ -474,10 +474,12 @@ const styles = StyleSheet.create({
   },
   filterPicker: {
     height: 36,
+    color: '#111827',
   },
   filterPickerItem: {
     height: 36,
     fontSize: 12,
+    color: '#111827',
   },
   dateButton: {
     flex: 1,

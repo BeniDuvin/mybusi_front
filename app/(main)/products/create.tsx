@@ -273,6 +273,7 @@ export default function CreateProductScreen() {
               selectedValue={formData.categoryId}
               onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
               style={styles.picker}
+              itemStyle={styles.pickerItem}
             >
               <Picker.Item label="Sélectionner une catégorie" value="" />
               {categories?.map((cat) => (
@@ -289,6 +290,7 @@ export default function CreateProductScreen() {
               selectedValue={formData.brandId}
               onValueChange={(value) => setFormData({ ...formData, brandId: value })}
               style={styles.picker}
+              itemStyle={styles.pickerItem}
             >
               <Picker.Item label="Sélectionner une marque" value="" />
               {brands?.map((brand) => (
@@ -305,6 +307,7 @@ export default function CreateProductScreen() {
               selectedValue={formData.depotId}
               onValueChange={(value) => setFormData({ ...formData, depotId: value })}
               style={styles.picker}
+              itemStyle={styles.pickerItem}
             >
               <Picker.Item label="Sélectionner un dépôt" value="" />
               {depots?.data?.map((depot) => (
@@ -426,6 +429,11 @@ const styles = StyleSheet.create({
   },
   picker: {
     marginHorizontal: Spacing.sm,
+    color: '#111827',
+  },
+  pickerItem: {
+    fontSize: 14,
+    color: '#111827',
   },
   imageSection: {
     marginBottom: Spacing.md,

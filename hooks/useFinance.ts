@@ -1,9 +1,10 @@
 import {
     expenseService,
     financeService,
+    otherIncomeService,
     salaryService,
 } from '@/services/finance.service';
-import type { CreateExpenseRequest, CreateSalaryRequest } from '@/types';
+import type { CreateExpenseRequest, CreateOtherIncomeRequest, CreateSalaryRequest } from '@/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export const useFinanceSummary = (
@@ -143,6 +144,59 @@ export const useDeleteSalary = () => {
     mutationFn: (id: string) => salaryService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['salaries'] });
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
+    },
+  });
+};
+
+// Other incomes
+export const useOtherIncomes = (params?: {
+  page?: number;
+  limit?: number;
+  depotId?: string;
+  category?: string;
+  startDate?: string;
+  endDate?: string;
+}) => {
+  return useQuery({
+    queryKey: ['other-incomes', params],
+    queryFn: () => otherIncomeService.getAll(params),
+  });
+};
+
+export const useCreateOtherIncome = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreateOtherIncomeRequest) => otherIncomeService.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['other-incomes'] });
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
+    },
+  });
+};
+
+export const useUpdateOtherIncome = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<CreateOtherIncomeRequest> }) =>
+      otherIncomeService.update(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['other-incomes'] });
+      queryClient.invalidateQueries({ queryKey: ['other-incomes', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['finance'] });
+    },
+  });
+};
+
+export const useDeleteOtherIncome = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => otherIncomeService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['other-incomes'] });
       queryClient.invalidateQueries({ queryKey: ['finance'] });
     },
   });

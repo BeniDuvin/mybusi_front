@@ -267,9 +267,11 @@ const styles = StyleSheet.create({
   },
   picker: {
     marginBottom: Spacing.md,
+    color: '#111827',
   },
   pickerItem: {
     fontSize: 14,
+    color: '#111827',
   },
   periodRow: {
     flexDirection: 'row',

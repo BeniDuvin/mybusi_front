@@ -405,10 +405,12 @@ const styles = StyleSheet.create({
   },
   picker: {
     height: 36,
+    color: '#111827',
   },
   pickerItem: {
     height: 36,
     fontSize: 12,
+    color: '#111827',
   },
   switchRow: {
     marginTop: Spacing.xs,

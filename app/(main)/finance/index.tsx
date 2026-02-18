@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Text, useTheme, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useExpenses, useSalaries } from '@/hooks/useFinance';
+import { useCashFlow, useExpenses, useOtherIncomes, useSalaries } from '@/hooks/useFinance';
 import { useSales } from '@/hooks/useSales';
 import { usePurchases } from '@/hooks/usePurchases';
 import { useAppStore } from '@/stores/app.store';
@@ -11,9 +11,11 @@ import { Spacing } from '@/constants/theme';
 import { useDepots } from '@/hooks/useDepots';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { useRouter } from 'expo-router';
 
 export default function FinanceHomeScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const { selectedDepotId, setSelectedDepotId } = useAppStore();
   const { data: depots } = useDepots();
 
@@ -100,6 +102,22 @@ export default function FinanceHomeScreen() {
     endDate,
     limit: 1000,
   });
+  const { data: otherIncomesData } = useOtherIncomes({
+    depotId: selectedDepotId || undefined,
+    startDate,
+    endDate,
+    limit: 1000,
+  });
+  const { data: cashFlowData } = useCashFlow({
+    depotId: selectedDepotId || undefined,
+    startDate,
+    endDate,
+  });
+  const cashFlowList = useMemo(() => {
+    if (Array.isArray(cashFlowData)) return cashFlowData;
+    const maybeData = (cashFlowData as any)?.data;
+    return Array.isArray(maybeData) ? maybeData : [];
+  }, [cashFlowData]);
 
   const computedTotals = useMemo(() => {
     const start = startDate ? new Date(startDate).getTime() : 0;
@@ -109,6 +127,8 @@ export default function FinanceHomeScreen() {
     const purchasesList = purchasesData?.data ?? (Array.isArray(purchasesData) ? purchasesData : []);
     const expensesList = expensesData?.data ?? (Array.isArray(expensesData) ? expensesData : []);
     const salariesList = salariesData?.data ?? (Array.isArray(salariesData) ? salariesData : []);
+    const otherIncomesList =
+      otherIncomesData?.data ?? (Array.isArray(otherIncomesData) ? otherIncomesData : []);
 
     const getSaleTotal = (sale: { total?: unknown; lines?: Array<{ total?: unknown; quantity?: unknown; unitPrice?: unknown; discount?: unknown }>; discount?: unknown; tax?: unknown }) => {
       const t = toNumber(sale?.total);
@@ -131,13 +151,13 @@ export default function FinanceHomeScreen() {
     };
 
     let sales = 0;
-    salesList.forEach((s: { createdAt?: string }) => {
+    salesList.forEach((s: { createdAt?: string; total?: unknown; lines?: Array<{ total?: unknown; quantity?: unknown; unitPrice?: unknown; discount?: unknown }>; discount?: unknown; tax?: unknown }) => {
       const ts = new Date(s.createdAt || 0).getTime();
       if (!start || !end || (ts >= start && ts <= end)) sales += getSaleTotal(s);
     });
 
     let purchases = 0;
-    purchasesList.forEach((p: { createdAt?: string }) => {
+    purchasesList.forEach((p: { createdAt?: string; total?: unknown; lines?: Array<{ quantity?: unknown; unitPrice?: unknown }> }) => {
       const ts = new Date(p.createdAt || 0).getTime();
       if (!start || !end || (ts >= start && ts <= end)) purchases += getPurchaseTotal(p);
     });
@@ -154,23 +174,32 @@ export default function FinanceHomeScreen() {
       if (!start || !end || (ts >= start && ts <= end)) salaries += toNumber(s.amount);
     });
 
-    return { sales, purchases, expenses, salaries };
+    let otherIncomes = 0;
+    otherIncomesList.forEach((income: { createdAt?: string; amount?: unknown }) => {
+      const ts = new Date(income.createdAt || 0).getTime();
+      if (!start || !end || (ts >= start && ts <= end)) otherIncomes += toNumber(income.amount);
+    });
+
+    return { sales, purchases, expenses, salaries, otherIncomes };
   }, [
     salesData?.data,
     purchasesData?.data,
     expensesData?.data,
     salariesData?.data,
+    otherIncomesData?.data,
     startDate,
     endDate,
   ]);
 
   const totalSales = computedTotals.sales;
+  const totalOtherIncomes = computedTotals.otherIncomes;
+  const totalIncome = totalSales + totalOtherIncomes;
   const totalPurchases = computedTotals.purchases;
   const totalExpenses = computedTotals.expenses;
   const totalSalaries = computedTotals.salaries;
-  const netProfit = totalSales - totalPurchases - totalExpenses - totalSalaries;
+  const netProfit = totalIncome - totalPurchases - totalExpenses - totalSalaries;
 
-  const assets = totalSales;
+  const assets = totalIncome;
   const liabilities = totalPurchases + totalExpenses + totalSalaries;
   const totalFlow = assets + liabilities;
   const assetsRatio = totalFlow > 0 ? assets / totalFlow : 0;
@@ -182,6 +211,18 @@ export default function FinanceHomeScreen() {
         <Text variant="headlineSmall" style={styles.title}>
           Finance
         </Text>
+
+        <View style={styles.quickTabsRow}>
+          <Button mode="outlined" onPress={() => router.push('/finance/expenses')}>
+            Dépenses
+          </Button>
+          <Button mode="outlined" onPress={() => router.push('/finance/salaries')}>
+            Salaires
+          </Button>
+          <Button mode="contained" onPress={() => router.push('/finance/other-incomes')}>
+            Autres entrées
+          </Button>
+        </View>
 
         <View style={styles.filtersRow}>
           <View style={styles.filterItem}>
@@ -404,6 +445,14 @@ export default function FinanceHomeScreen() {
               <Text variant="bodyMedium">{formatCurrency(totalSales)}</Text>
             </View>
             <View style={styles.row}>
+              <Text variant="bodyMedium">Autres entrées</Text>
+              <Text variant="bodyMedium">{formatCurrency(totalOtherIncomes)}</Text>
+            </View>
+            <View style={styles.row}>
+              <Text variant="bodyMedium">Revenus totaux</Text>
+              <Text variant="bodyMedium">{formatCurrency(totalIncome)}</Text>
+            </View>
+            <View style={styles.row}>
               <Text variant="bodyMedium">Achats</Text>
               <Text variant="bodyMedium">{formatCurrency(totalPurchases)}</Text>
             </View>
@@ -469,6 +518,44 @@ export default function FinanceHomeScreen() {
             </View>
           </Card.Content>
         </Card>
+
+        <Card style={styles.card}>
+          <Card.Content>
+            <View style={styles.sectionHeaderRow}>
+              <Text variant="titleSmall" style={styles.sectionTitle}>
+                Flux financiers
+              </Text>
+              <Button mode="text" compact onPress={() => router.push('/finance/other-incomes')}>
+                Autres entrées
+              </Button>
+            </View>
+
+            {cashFlowList.slice(0, 8).map((item, idx) => {
+              const source = item.source || item.category || 'Flux';
+              const type = item.type || (Number(item.income) > 0 ? 'INCOME' : 'EXPENSE');
+              const amount = Number(item.amount ?? item.income ?? 0) || Number(item.expense ?? 0);
+              const signedAmount = type === 'INCOME' ? amount : -Math.abs(amount);
+              return (
+                <View key={`${item.createdAt || item.date || idx}`} style={styles.row}>
+                  <Text variant="bodySmall" style={styles.flowLabel}>
+                    {type} - {source}
+                  </Text>
+                  <Text
+                    variant="bodySmall"
+                    style={{ color: signedAmount >= 0 ? theme.colors.primary : theme.colors.error }}
+                  >
+                    {formatCurrency(Math.abs(signedAmount))}
+                  </Text>
+                </View>
+              );
+            })}
+            {!cashFlowList.length ? (
+              <Text variant="bodySmall" style={styles.flowEmpty}>
+                Aucun flux sur la période.
+              </Text>
+            ) : null}
+          </Card.Content>
+        </Card>
       </ScrollView>
     </SafeAreaView>
   );
@@ -506,6 +593,12 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingBottom: Spacing.sm,
   },
+  quickTabsRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+    flexWrap: 'wrap',
+  },
   filterItem: {
     flex: 1,
     borderWidth: 1,
@@ -521,10 +614,12 @@ const styles = StyleSheet.create({
   },
   filterPicker: {
     height: 36,
+    color: '#111827',
   },
   filterPickerItem: {
     height: 36,
     fontSize: 12,
+    color: '#111827',
   },
   periodTabsRow: {
     flexDirection: 'row',
@@ -567,10 +662,12 @@ const styles = StyleSheet.create({
   },
   periodPickerInput: {
     height: 36,
+    color: '#111827',
   },
   periodPickerItem: {
     height: 36,
     fontSize: 12,
+    color: '#111827',
   },
   chartWrapper: {
     alignItems: 'center',
@@ -602,5 +699,19 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 999,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  flowLabel: {
+    flex: 1,
+    opacity: 0.8,
+    marginRight: Spacing.sm,
+  },
+  flowEmpty: {
+    opacity: 0.6,
   },
 });

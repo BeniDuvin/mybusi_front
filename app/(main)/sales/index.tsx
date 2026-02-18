@@ -327,10 +327,12 @@ const styles = StyleSheet.create({
   filterPicker: {
     height: 34,
     marginTop: -2,
+    color: '#111827',
   },
   filterPickerItem: {
     height: 34,
     fontSize: 12,
+    color: '#111827',
   },
   listContent: {
     padding: Spacing.md,

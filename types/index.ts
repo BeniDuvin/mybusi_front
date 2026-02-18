@@ -336,6 +336,29 @@ export interface CreateExpenseRequest {
   reference?: string;
 }
 
+// Other income types
+export interface OtherIncome {
+  id: string;
+  depotId: string;
+  depot?: Depot;
+  category: string;
+  amount: number;
+  description: string;
+  reference?: string;
+  userId: string;
+  user?: User;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateOtherIncomeRequest {
+  depotId: string;
+  category: string;
+  amount: number;
+  description: string;
+  reference?: string;
+}
+
 // Salary Types
 export interface SalaryPayment {
   id: string;
@@ -360,6 +383,8 @@ export interface CreateSalaryRequest {
 // Finance Types
 export interface FinanceSummary {
   totalSales: number;
+  totalOtherIncomes: number;
+  totalIncome: number;
   totalPurchases: number;
   totalExpenses: number;
   totalSalaries: number;
@@ -372,6 +397,13 @@ export interface CashFlowItem {
   income: number;
   expense: number;
   balance: number;
+  type?: 'INCOME' | 'EXPENSE';
+  source?: string;
+  category?: string;
+  amount?: number;
+  reference?: string;
+  description?: string;
+  createdAt?: string;
 }
 
 // Log Types

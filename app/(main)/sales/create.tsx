@@ -386,6 +386,8 @@ export default function CreateSaleScreen() {
                   <Picker
                     selectedValue={selectedDepotId || ''}
                     onValueChange={(value) => setSelectedDepotId(value || null)}
+                    dropdownIconColor={theme.colors.onSurface}
+                    style={{ color: theme.colors.onSurface }}
                   >
                     <Picker.Item label="Sélectionner un dépôt" value="" />
                     {depots?.data?.map((depot) => (
@@ -526,6 +528,8 @@ export default function CreateSaleScreen() {
                   <Picker
                     selectedValue={paymentMethod}
                     onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}
+                    dropdownIconColor={theme.colors.onSurface}
+                    style={{ color: theme.colors.onSurface }}
                   >
                     {Object.values(PAYMENT_METHODS).map((method) => (
                       <Picker.Item
@@ -556,6 +560,8 @@ export default function CreateSaleScreen() {
                       <Picker
                         selectedValue={mobileMoneyProvider}
                         onValueChange={(value) => setMobileMoneyProvider(value as any)}
+                        dropdownIconColor={theme.colors.onSurface}
+                        style={{ color: theme.colors.onSurface }}
                       >
                         <Picker.Item label="Sélectionner un provider" value="" />
                         {Object.values(MOBILE_MONEY_PROVIDERS).map((provider) => (
@@ -645,6 +651,8 @@ export default function CreateSaleScreen() {
             <Picker
               selectedValue={linePackageType}
               onValueChange={(value) => setLinePackageType(value as PackagingType)}
+              dropdownIconColor={theme.colors.onSurface}
+              style={{ color: theme.colors.onSurface }}
             >
               <Picker.Item label="Unité" value="UNITE" />
               <Picker.Item label="Casier" value="CASIER" />

@@ -7,6 +7,9 @@ export default function FinanceLayout() {
       <Stack.Screen name="expenses/index" />
       <Stack.Screen name="expenses/create" />
       <Stack.Screen name="expenses/edit/[id]" />
+      <Stack.Screen name="other-incomes/index" />
+      <Stack.Screen name="other-incomes/create" />
+      <Stack.Screen name="other-incomes/edit/[id]" />
       <Stack.Screen name="salaries/index" />
       <Stack.Screen name="salaries/create" />
       <Stack.Screen name="salaries/edit/[id]" />
