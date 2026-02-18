@@ -585,6 +585,8 @@ const styles = StyleSheet.create({
   picker: {
     marginHorizontal: Spacing.sm,
     color: '#111827',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
   },
   pickerItem: {
     fontSize: 14,

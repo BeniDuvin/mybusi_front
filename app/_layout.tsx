@@ -2,9 +2,10 @@ import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
 import { lightTheme } from '@/constants/theme';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import React, { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { LogBox } from 'react-native';
 import { PaperProvider } from 'react-native-paper';
 
 const queryClient = new QueryClient({
@@ -16,16 +17,21 @@ const queryClient = new QueryClient({
   },
 });
 
+// Expo/Android may emit this internal warning even when app code
+// does not use keep-awake; ignore to avoid noisy redbox in dev.
+LogBox.ignoreLogs(['Unable to activate keep awake']);
+
 function RootLayoutNav() {
   const { user, loading } = useAuthContext();
   const segments = useSegments();
+  const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
-    const isSplash = segments.length === 0 || segments[0] === 'index';
+    const isSplash = pathname === '/' || pathname === '/index';
 
     if (isSplash) return;
 
@@ -36,7 +42,7 @@ function RootLayoutNav() {
       // Redirect to main app if authenticated
       router.replace('/(main)/dashboard');
     }
-  }, [user, loading, segments]);
+  }, [user, loading, segments, pathname]);
 
   if (loading) {
     return <LoadingOverlay visible={true} message="Chargement..." />;

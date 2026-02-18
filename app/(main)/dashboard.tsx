@@ -421,12 +421,14 @@ export default function DashboardScreen() {
             <Picker
               selectedValue={selectedDepotId || ''}
               onValueChange={(value) => setSelectedDepotId(value || null)}
-              style={styles.filterPicker}
+              style={[styles.filterPicker, { color: '#000000', backgroundColor: '#FFFFFF' }]}
               itemStyle={styles.filterPickerItem}
+              dropdownIconColor="#000000"
+              mode="dropdown"
             >
-              <Picker.Item label="Tous" value="" />
+              <Picker.Item label="Tous" value="" color="#000000" />
               {depots?.data?.map((depot) => (
-                <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
+                <Picker.Item key={depot.id} label={depot.name} value={depot.id} color="#000000" />
               ))}
             </Picker>
           </View>

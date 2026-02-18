@@ -344,6 +344,8 @@ const styles = StyleSheet.create({
   picker: {
     marginBottom: Spacing.md,
     color: '#111827',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
   },
   pickerItem: {
     fontSize: 14,
