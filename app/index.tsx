@@ -6,7 +6,7 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const logo = require('../assets/images/logo_app.png');
+const logo = require('../assets/images/icon.png');
 
 export default function Index() {
   const theme = useTheme();

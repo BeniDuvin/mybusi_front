@@ -10,20 +10,40 @@ export const isValidEmail = (email: string): boolean => {
  * Validate phone number (Congo Brazzaville format)
  */
 export const isValidPhone = (phone: string): boolean => {
-  // Remove all non-digit characters
   const cleaned = phone.replace(/\D/g, '');
-  
-  // Check if it starts with country code or local format
-  // +242 XX XXX XX XX or 06/05/04 XXX XX XX (9 digits)
   return /^(242)?[0-9]{9}$/.test(cleaned);
 };
 
 /**
- * Validate password strength
+ * Normalize phone for API (Congo Brazzaville: +242XXXXXXXXX)
+ */
+export const normalizePhone = (phone: string): string => {
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 9 && !cleaned.startsWith('242')) {
+    return `+242${cleaned}`;
+  }
+  if (cleaned.startsWith('242')) {
+    return `+${cleaned}`;
+  }
+  return phone.startsWith('+') ? phone : `+${cleaned}`;
+};
+
+/**
+ * Validate password strength (basic, for register etc.)
  */
 export const isValidPassword = (password: string): boolean => {
-  // At least 6 characters
   return password.length >= 6;
+};
+
+/**
+ * Validate password for reset (backend: min 8 chars, 1 maj, 1 min, 1 chiffre)
+ */
+export const isStrongPassword = (password: string): boolean => {
+  if (password.length < 8) return false;
+  if (!/[A-Z]/.test(password)) return false;
+  if (!/[a-z]/.test(password)) return false;
+  if (!/[0-9]/.test(password)) return false;
+  return true;
 };
 
 /**

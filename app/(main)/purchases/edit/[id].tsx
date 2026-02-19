@@ -1,4 +1,5 @@
 import { Spacing } from '@/constants/theme';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { usePurchase, useUpdatePurchase } from '@/hooks/usePurchases';
 import type { CreatePurchaseRequest } from '@/types';
 import { PURCHASE_STATUS_LABELS } from '@/utils/constants';
@@ -26,6 +27,13 @@ export default function EditPurchaseScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const isAdmin = useAuthContext().hasRole(['ADMIN']);
+
+  React.useEffect(() => {
+    if (!isAdmin) {
+      router.replace('/purchases');
+    }
+  }, [isAdmin, router]);
   const { data: purchase, isLoading } = usePurchase(id || '');
   const updateMutation = useUpdatePurchase();
 

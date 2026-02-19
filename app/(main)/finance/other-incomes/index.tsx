@@ -22,7 +22,7 @@ export default function OtherIncomesListScreen() {
   const { selectedDepotId, setSelectedDepotId } = useAppStore();
   const { hasRole } = useAuthContext();
   const canManage = hasRole(['ADMIN', 'GERANT']);
-  const isAdmin = hasRole(['ADMIN']);
+  const canEdit = hasRole(['ADMIN']);
   const { data: depots } = useDepots();
   const deleteMutation = useDeleteOtherIncome();
 
@@ -218,7 +218,7 @@ export default function OtherIncomesListScreen() {
         renderItem={({ item }) => (
           <Card
             style={styles.card}
-            onPress={() => router.push({ pathname: '/finance/other-incomes/edit/[id]', params: { id: item.id } })}
+            onPress={() => canEdit && router.push({ pathname: '/finance/other-incomes/edit/[id]', params: { id: item.id } })}
           >
             <Card.Content>
               <View style={styles.header}>
@@ -239,20 +239,20 @@ export default function OtherIncomesListScreen() {
                     Utilisateur: {item.user ? `${item.user.firstName} ${item.user.lastName}` : '—'}
                   </Text>
                 </View>
-                <Menu
-                  visible={menuVisible === item.id}
-                  onDismiss={() => setMenuVisible(null)}
-                  anchor={<IconButton icon="dots-vertical" onPress={() => setMenuVisible(item.id)} />}
-                >
-                  <Menu.Item
-                    title="Modifier"
-                    leadingIcon="pencil"
-                    onPress={() => {
-                      setMenuVisible(null);
-                      router.push({ pathname: '/finance/other-incomes/edit/[id]', params: { id: item.id } });
-                    }}
-                  />
-                  {isAdmin ? (
+                {canEdit && (
+                  <Menu
+                    visible={menuVisible === item.id}
+                    onDismiss={() => setMenuVisible(null)}
+                    anchor={<IconButton icon="dots-vertical" onPress={() => setMenuVisible(item.id)} />}
+                  >
+                    <Menu.Item
+                      title="Modifier"
+                      leadingIcon="pencil"
+                      onPress={() => {
+                        setMenuVisible(null);
+                        router.push({ pathname: '/finance/other-incomes/edit/[id]', params: { id: item.id } });
+                      }}
+                    />
                     <Menu.Item
                       title="Supprimer"
                       leadingIcon="delete"
@@ -262,8 +262,8 @@ export default function OtherIncomesListScreen() {
                         setDeleteDialogVisible(true);
                       }}
                     />
-                  ) : null}
-                </Menu>
+                  </Menu>
+                )}
               </View>
               <Text variant="titleSmall" style={[styles.amount, { color: theme.colors.primary }]}>
                 {formatCurrency(item.amount)}
@@ -276,9 +276,9 @@ export default function OtherIncomesListScreen() {
             <EmptyState
               icon="cash-plus"
               title="Aucune entrée"
-              message="Ajoutez votre première entrée hors ventes"
-              actionLabel="Nouvelle entrée"
-              onAction={() => router.push('/finance/other-incomes/create')}
+              message={canEdit ? 'Ajoutez votre première entrée hors ventes' : 'Aucune entrée enregistrée'}
+              actionLabel={canEdit ? 'Nouvelle entrée' : undefined}
+              onAction={canEdit ? () => router.push('/finance/other-incomes/create') : undefined}
             />
           ) : null
         }
@@ -290,7 +290,9 @@ export default function OtherIncomesListScreen() {
         onEndReachedThreshold={0.5}
       />
 
-      <FAB icon="plus" label="Nouvelle entrée" style={styles.fab} onPress={() => router.push('/finance/other-incomes/create')} />
+      {canEdit && (
+        <FAB icon="plus" label="Nouvelle entrée" style={styles.fab} onPress={() => router.push('/finance/other-incomes/create')} />
+      )}
 
       <Portal>
         <Dialog visible={deleteDialogVisible} onDismiss={() => setDeleteDialogVisible(false)}>

@@ -1,15 +1,37 @@
 import { useAuthContext } from '@/contexts/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Tabs, useRouter, useSegments } from 'expo-router';
+import React, { useEffect } from 'react';
 import { useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MainLayout() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { hasRole } = useAuthContext();
+  const { user, hasRole } = useAuthContext();
+  const router = useRouter();
+  const segments = useSegments();
   const canManage = hasRole(['ADMIN', 'GERANT']);
+  const isAdmin = hasRole(['ADMIN']);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const currentRoot = segments[1];
+    if (!currentRoot) return;
+
+    const adminOnlyRoots = ['users', 'depots', 'settings'];
+    const managerRoots = ['finance', 'expenses', 'other-incomes', 'payments'];
+
+    if (adminOnlyRoots.includes(currentRoot) && !isAdmin) {
+      router.replace('/profile');
+      return;
+    }
+
+    if (managerRoots.includes(currentRoot) && !canManage) {
+      router.replace('/dashboard');
+    }
+  }, [user, segments, isAdmin, canManage, router]);
 
   const tabIcon = (name: React.ComponentProps<typeof MaterialCommunityIcons>['name']) => {
     return ({ focused }: { focused: boolean }) => (
@@ -55,26 +77,24 @@ export default function MainLayout() {
           tabBarIcon: tabIcon('cart'),
         }}
       />
-      {canManage && (
-        <Tabs.Screen
-          name="other-incomes"
-          options={{
-            title: "Entrées d'argent",
-            tabBarLabel: 'Entrées',
-            tabBarIcon: tabIcon('cash-plus'),
-          }}
-        />
-      )}
-      {canManage && (
-        <Tabs.Screen
-          name="expenses"
-          options={{
-            title: 'Dépenses',
-            tabBarLabel: 'Dépenses',
-            tabBarIcon: tabIcon('cash-minus'),
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="other-incomes"
+        options={{
+          title: "Entrées d'argent",
+          tabBarLabel: 'Entrées',
+          tabBarIcon: tabIcon('cash-plus'),
+          href: canManage ? undefined : null,
+        }}
+      />
+      <Tabs.Screen
+        name="expenses"
+        options={{
+          title: 'Dépenses',
+          tabBarLabel: 'Dépenses',
+          tabBarIcon: tabIcon('cash-minus'),
+          href: canManage ? undefined : null,
+        }}
+      />
       <Tabs.Screen
         name="purchases"
         options={{

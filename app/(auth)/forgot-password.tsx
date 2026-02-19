@@ -1,10 +1,13 @@
 import { BorderRadius, Shadows, Spacing } from '@/constants/theme';
+import { authService } from '@/services/auth.service';
 import { isValidEmail } from '@/utils/validation';
 import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const logo = require('../../assets/images/icon.png');
 
 export default function ForgotPasswordScreen() {
   const theme = useTheme();
@@ -30,8 +33,7 @@ export default function ForgotPasswordScreen() {
     setError('');
 
     try {
-      // TODO: Implement password reset API call
-      // await authService.resetPassword({ email });
+      await authService.requestPasswordReset({ email });
       setSuccess('Un lien de réinitialisation a été envoyé à votre email');
       setTimeout(() => {
         if (router.canGoBack()) {
@@ -39,9 +41,11 @@ export default function ForgotPasswordScreen() {
         } else {
           router.replace('/login');
         }
-      }, 2000);
+      }, 2500);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Échec de la réinitialisation');
+      setError(
+        err.response?.data?.message || err.message || 'Échec de la réinitialisation'
+      );
     } finally {
       setLoading(false);
     }
@@ -55,11 +59,12 @@ export default function ForgotPasswordScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
+            <Image source={logo} style={styles.logo} resizeMode="contain" />
             <Text variant="headlineMedium" style={styles.title}>
               Mot de passe oublié
             </Text>
             <Text variant="bodyMedium" style={styles.subtitle}>
-              Entrez votre email pour réinitialiser votre mot de passe
+              Entrez votre email pour recevoir un lien de réinitialisation
             </Text>
           </View>
 
@@ -138,7 +143,13 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
   },
   header: {
+    alignItems: 'center',
     marginBottom: Spacing.xl,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: Spacing.md,
   },
   title: {
     fontWeight: 'bold',

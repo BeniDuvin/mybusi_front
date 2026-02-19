@@ -3,6 +3,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Spacing } from '@/constants/theme';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useDepots } from '@/hooks/useDepots';
 import { useCancelSale, useSales } from '@/hooks/useSales';
 import { useAppStore } from '@/stores/app.store';
@@ -29,6 +30,7 @@ export default function SalesListScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { selectedDepotId, setSelectedDepotId } = useAppStore();
+  const isAdmin = useAuthContext().hasRole(['ADMIN']);
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -120,7 +122,7 @@ export default function SalesListScreen() {
                 title="Voir facture"
                 leadingIcon="receipt"
               />
-              {item.status !== 'CANCELLED' && (
+              {item.status !== 'CANCELLED' && isAdmin && (
                 <Menu.Item
                   onPress={() => {
                     setMenuVisible(null);
@@ -255,9 +257,9 @@ export default function SalesListScreen() {
             <EmptyState
               icon="cart"
               title="Aucune vente"
-              message="Commencez par créer votre première vente"
-              actionLabel="Nouvelle vente"
-              onAction={() => router.push('/sales/create')}
+              message={isAdmin ? 'Commencez par créer votre première vente' : 'Aucune vente enregistrée'}
+              actionLabel={isAdmin ? 'Nouvelle vente' : undefined}
+              onAction={isAdmin ? () => router.push('/sales/create') : undefined}
             />
           ) : null
         }
@@ -269,12 +271,14 @@ export default function SalesListScreen() {
         onEndReachedThreshold={0.5}
       />
 
-      <FAB
-        icon="cart-plus"
-        label="Nouvelle vente"
-        style={styles.fab}
-        onPress={() => router.push('/sales/create')}
-      />
+      {isAdmin && (
+        <FAB
+          icon="cart-plus"
+          label="Nouvelle vente"
+          style={styles.fab}
+          onPress={() => router.push('/sales/create')}
+        />
+      )}
 
       <Portal>
         <Dialog visible={cancelDialogVisible} onDismiss={() => setCancelDialogVisible(false)}>

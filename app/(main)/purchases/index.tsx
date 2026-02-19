@@ -3,6 +3,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Spacing } from '@/constants/theme';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { usePurchases, useSuppliers } from '@/hooks/usePurchases';
 import { useDepots } from '@/hooks/useDepots';
 import { useAppStore } from '@/stores/app.store';
@@ -27,6 +28,7 @@ export default function PurchasesListScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { selectedDepotId, setSelectedDepotId } = useAppStore();
+  const isAdmin = useAuthContext().hasRole(['ADMIN']);
 
   const [page, setPage] = useState(1);
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
@@ -81,7 +83,7 @@ export default function PurchasesListScreen() {
     return (
     <Card
       style={[styles.card, { borderColor: theme.colors.outline }]}
-      onPress={() => router.push(`/purchases/edit/${item.id}`)}
+      onPress={() => isAdmin && router.push(`/purchases/edit/${item.id}`)}
     >
       <Card.Content>
         <View style={styles.header}>
@@ -102,20 +104,22 @@ export default function PurchasesListScreen() {
             </Text>
           </View>
 
-          <Menu
-            visible={menuVisible === item.id}
-            onDismiss={() => setMenuVisible(null)}
-            anchor={<IconButton icon="dots-vertical" onPress={() => setMenuVisible(item.id)} />}
-          >
-            <Menu.Item
-              onPress={() => {
-                setMenuVisible(null);
-                router.push(`/purchases/edit/${item.id}`);
-              }}
-              title="Modifier"
-              leadingIcon="pencil"
-            />
-          </Menu>
+          {isAdmin && (
+            <Menu
+              visible={menuVisible === item.id}
+              onDismiss={() => setMenuVisible(null)}
+              anchor={<IconButton icon="dots-vertical" onPress={() => setMenuVisible(item.id)} />}
+            >
+              <Menu.Item
+                onPress={() => {
+                  setMenuVisible(null);
+                  router.push(`/purchases/edit/${item.id}`);
+                }}
+                title="Modifier"
+                leadingIcon="pencil"
+              />
+            </Menu>
+          )}
         </View>
 
         <View style={styles.summaryRow}>
@@ -235,9 +239,9 @@ export default function PurchasesListScreen() {
             <EmptyState
               icon="shippingbox"
               title="Aucun achat"
-              message="Créez votre premier achat"
-              actionLabel="Nouvel achat"
-              onAction={() => router.push('/purchases/create')}
+              message={isAdmin ? 'Créez votre premier achat' : 'Aucun achat enregistré'}
+              actionLabel={isAdmin ? 'Nouvel achat' : undefined}
+              onAction={isAdmin ? () => router.push('/purchases/create') : undefined}
             />
           ) : null
         }
@@ -249,12 +253,14 @@ export default function PurchasesListScreen() {
         onEndReachedThreshold={0.5}
       />
 
-      <FAB
-        icon="plus"
-        label="Nouvel achat"
-        style={styles.fab}
-        onPress={() => router.push('/purchases/create')}
-      />
+      {isAdmin && (
+        <FAB
+          icon="plus"
+          label="Nouvel achat"
+          style={styles.fab}
+          onPress={() => router.push('/purchases/create')}
+        />
+      )}
     </SafeAreaView>
   );
 }

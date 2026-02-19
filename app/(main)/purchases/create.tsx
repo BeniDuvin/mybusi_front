@@ -1,4 +1,5 @@
 import { Spacing } from '@/constants/theme';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useDepots } from '@/hooks/useDepots';
 import { useProducts } from '@/hooks/useProducts';
 import { useCreatePurchase, usePayPurchase, useSuppliers } from '@/hooks/usePurchases';
@@ -40,6 +41,13 @@ export default function CreatePurchaseScreen() {
   const createMutation = useCreatePurchase();
   const payMutation = usePayPurchase();
   const { selectedDepotId, setSelectedDepotId } = useAppStore();
+  const isAdmin = useAuthContext().hasRole(['ADMIN']);
+
+  React.useEffect(() => {
+    if (!isAdmin) {
+      router.replace('/purchases');
+    }
+  }, [isAdmin, router]);
 
   const [depotId, setDepotId] = useState(selectedDepotId || '');
   const [supplierId, setSupplierId] = useState('');

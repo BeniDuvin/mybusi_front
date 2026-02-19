@@ -1,11 +1,11 @@
 import { Spacing } from '@/constants/theme';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { authService } from '@/services/auth.service';
-import { isValidEmail } from '@/utils/validation';
+import { isValidEmail, isStrongPassword } from '@/utils/validation';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { Button, IconButton, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
+import { Button, Divider, IconButton, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileEditScreen() {
@@ -19,7 +19,14 @@ export default function ProfileEditScreen() {
     email: '',
     phone: '',
   });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmNewPassword: '',
+  });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -65,6 +72,42 @@ export default function ProfileEditScreen() {
       setError(err.response?.data?.message || 'Erreur lors de la mise à jour');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const PASSWORD_HINT = 'Min. 8 caractères, 1 majuscule, 1 minuscule, 1 chiffre';
+
+  const handleChangePassword = async () => {
+    if (!passwordData.currentPassword) {
+      setError('Veuillez entrer votre mot de passe actuel');
+      return;
+    }
+    if (!passwordData.newPassword || !passwordData.confirmNewPassword) {
+      setError('Veuillez remplir tous les champs du mot de passe');
+      return;
+    }
+    if (!isStrongPassword(passwordData.newPassword)) {
+      setError(PASSWORD_HINT);
+      return;
+    }
+    if (passwordData.newPassword !== passwordData.confirmNewPassword) {
+      setError('Les nouveaux mots de passe ne correspondent pas');
+      return;
+    }
+
+    try {
+      setPasswordLoading(true);
+      setError('');
+      await authService.changePassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+      setSuccess('Mot de passe modifié avec succès');
+      setPasswordData({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Mot de passe actuel incorrect ou erreur');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -130,11 +173,77 @@ export default function ProfileEditScreen() {
           <Button
             mode="contained"
             onPress={handleSubmit}
+            disabled={passwordLoading}
             loading={loading}
             disabled={loading}
             style={styles.submitButton}
           >
             Enregistrer
+          </Button>
+
+          <Divider style={styles.divider} />
+
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            Modifier le mot de passe
+          </Text>
+          <Text variant="bodySmall" style={styles.sectionHint}>
+            Entrez d'abord votre mot de passe actuel pour le modifier
+          </Text>
+
+          <TextInput
+            label="Mot de passe actuel *"
+            value={passwordData.currentPassword}
+            onChangeText={(text) =>
+              setPasswordData({ ...passwordData, currentPassword: text })
+            }
+            mode="outlined"
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            style={styles.input}
+            left={<TextInput.Icon icon="lock" />}
+            right={
+              <TextInput.Icon
+                icon={showPassword ? 'eye-off' : 'eye'}
+                onPress={() => setShowPassword(!showPassword)}
+              />
+            }
+          />
+
+          <TextInput
+            label="Nouveau mot de passe *"
+            value={passwordData.newPassword}
+            onChangeText={(text) =>
+              setPasswordData({ ...passwordData, newPassword: text })
+            }
+            mode="outlined"
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            placeholder={PASSWORD_HINT}
+            style={styles.input}
+            left={<TextInput.Icon icon="lock-plus" />}
+          />
+
+          <TextInput
+            label="Confirmer le nouveau mot de passe *"
+            value={passwordData.confirmNewPassword}
+            onChangeText={(text) =>
+              setPasswordData({ ...passwordData, confirmNewPassword: text })
+            }
+            mode="outlined"
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            style={styles.input}
+            left={<TextInput.Icon icon="lock-check" />}
+          />
+
+          <Button
+            mode="outlined"
+            onPress={handleChangePassword}
+            loading={passwordLoading}
+            disabled={loading || passwordLoading}
+            style={styles.passwordButton}
+          >
+            Modifier le mot de passe
           </Button>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -177,5 +286,19 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: Spacing.md,
+  },
+  divider: {
+    marginVertical: Spacing.xl,
+  },
+  sectionTitle: {
+    fontWeight: 'bold',
+    marginBottom: Spacing.xs,
+  },
+  sectionHint: {
+    opacity: 0.7,
+    marginBottom: Spacing.md,
+  },
+  passwordButton: {
+    marginTop: Spacing.sm,
   },
 });

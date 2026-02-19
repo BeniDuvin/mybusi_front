@@ -2,10 +2,13 @@ import * as SecureStore from 'expo-secure-store';
 import { api } from './api';
 import type {
   AuthResponse,
+  ChangePasswordRequest,
+  ForgotPasswordRequest,
   LoginRequest,
   OTPRequest,
   OTPVerifyRequest,
   RegisterRequest,
+  ResetPasswordRequest,
   User,
 } from '@/types';
 
@@ -19,6 +22,16 @@ export const authService = {
   async login(data: LoginRequest): Promise<AuthResponse> {
     const response = await api.post<AuthResponse>('/auth/login', data);
     await this.saveTokens(response.data);
+    return response.data;
+  },
+
+  async requestPasswordReset(data: ForgotPasswordRequest): Promise<{ message: string }> {
+    const response = await api.post<{ message: string }>('/auth/forgot-password', data);
+    return response.data;
+  },
+
+  async resetPassword(data: ResetPasswordRequest): Promise<{ message: string }> {
+    const response = await api.post<{ message: string }>('/auth/reset-password', data);
     return response.data;
   },
 
@@ -45,6 +58,11 @@ export const authService = {
       const fallback = await api.get<User>('/users/me');
       return fallback.data;
     }
+  },
+
+  async changePassword(data: ChangePasswordRequest): Promise<{ message: string }> {
+    const response = await api.post<{ message: string }>('/auth/change-password', data);
+    return response.data;
   },
 
   async updateProfile(

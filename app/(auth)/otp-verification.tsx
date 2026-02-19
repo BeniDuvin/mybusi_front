@@ -1,12 +1,21 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Image, StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Button, Text, TextInput, useTheme, Snackbar } from 'react-native-paper';
 import { Link, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { authService } from '@/services/auth.service';
 import { BorderRadius, Shadows, Spacing } from '@/constants/theme';
-import { isValidPhone } from '@/utils/validation';
+import { isValidPhone, normalizePhone } from '@/utils/validation';
+
+const logo = require('../../assets/images/icon.png');
+const RESEND_COOLDOWN_SEC = 60;
+
+/** Messages utilisateur - évite d'exposer les erreurs techniques (ex. OTP_MOCK, service SMS) */
+const USER_MESSAGES = {
+  sendFailed: "Envoi du code impossible. Réessayez plus tard.",
+  verifyFailed: "Code invalide ou expiré. Vérifiez le code ou renvoyez-en un nouveau.",
+};
 
 export default function OTPVerificationScreen() {
   const theme = useTheme();
@@ -19,15 +28,22 @@ export default function OTPVerificationScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
 
-  const handleSendOTP = async () => {
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setInterval(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearInterval(t);
+  }, [resendCooldown]);
+
+  const handleSendOTP = useCallback(async () => {
     if (!phone) {
       setError('Veuillez entrer votre numéro de téléphone');
       return;
     }
 
     if (!isValidPhone(phone)) {
-      setError('Numéro de téléphone invalide');
+      setError('Numéro de téléphone invalide (ex: +242 06 123 45 67)');
       return;
     }
 
@@ -35,15 +51,20 @@ export default function OTPVerificationScreen() {
     setError('');
 
     try {
-      await authService.sendOTP({ phone });
+      const normalized = normalizePhone(phone);
+      await authService.sendOTP({ phone: normalized });
       setSuccess('Code OTP envoyé avec succès');
       setStep('otp');
+      setResendCooldown(RESEND_COOLDOWN_SEC);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Échec de l'envoi du code");
+      if (__DEV__) {
+        console.warn('[OTP] send error:', err?.response?.data || err?.message);
+      }
+      setError(USER_MESSAGES.sendFailed);
     } finally {
       setLoading(false);
     }
-  };
+  }, [phone]);
 
   const handleVerifyOTP = async () => {
     if (!otpCode) {
@@ -60,11 +81,15 @@ export default function OTPVerificationScreen() {
     setError('');
 
     try {
-      const response = await authService.verifyOTP({ phone, otpCode });
+      const normalized = normalizePhone(phone);
+      const response = await authService.verifyOTP({ phone: normalized, otpCode });
       await signIn(response.accessToken, response.refreshToken, response.user);
       router.replace('/(main)/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Code OTP invalide');
+      if (__DEV__) {
+        console.warn('[OTP] verify error:', err?.response?.data || err?.message);
+      }
+      setError(USER_MESSAGES.verifyFailed);
     } finally {
       setLoading(false);
     }
@@ -78,6 +103,7 @@ export default function OTPVerificationScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
+            <Image source={logo} style={styles.logo} resizeMode="contain" />
             <Text variant="headlineMedium" style={styles.title}>
               Connexion par SMS
             </Text>
@@ -144,8 +170,15 @@ export default function OTPVerificationScreen() {
                   Vérifier le code
                 </Button>
 
-                <Button mode="text" onPress={handleSendOTP} style={styles.resendButton}>
-                  Renvoyer le code
+                <Button
+                  mode="text"
+                  onPress={handleSendOTP}
+                  disabled={resendCooldown > 0 || loading}
+                  style={styles.resendButton}
+                >
+                  {resendCooldown > 0
+                    ? `Renvoyer dans ${resendCooldown}s`
+                    : 'Renvoyer le code'}
                 </Button>
 
                 <Button
@@ -153,6 +186,7 @@ export default function OTPVerificationScreen() {
                   onPress={() => {
                     setStep('phone');
                     setOtpCode('');
+                    setResendCooldown(0);
                   }}
                   style={styles.backButton}
                 >
@@ -209,7 +243,13 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
   },
   header: {
+    alignItems: 'center',
     marginBottom: Spacing.xl,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: Spacing.md,
   },
   title: {
     fontWeight: 'bold',

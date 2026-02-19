@@ -61,6 +61,7 @@ export default function ExpensesListScreen() {
   const { selectedDepotId, setSelectedDepotId } = useAppStore();
   const { hasRole } = useAuthContext();
   const canManage = hasRole(['ADMIN', 'GERANT']);
+  const canEdit = hasRole(['ADMIN']);
   const { data: depots } = useDepots();
 
   const now = new Date();
@@ -201,7 +202,10 @@ export default function ExpensesListScreen() {
   };
 
   const renderExpense = ({ item }: { item: Expense }) => (
-    <Card style={styles.card} onPress={() => router.push(`/finance/expenses/edit/${item.id}`)}>
+    <Card
+      style={styles.card}
+      onPress={() => canEdit && router.push(`/finance/expenses/edit/${item.id}`)}
+    >
       <Card.Content>
         <View style={styles.header}>
           <View style={styles.info}>
@@ -214,29 +218,31 @@ export default function ExpensesListScreen() {
               </Text>
             ) : null}
           </View>
-          <Menu
-            visible={menuVisible === item.id}
-            onDismiss={() => setMenuVisible(null)}
-            anchor={<IconButton icon="dots-vertical" onPress={() => setMenuVisible(item.id)} />}
-          >
-            <Menu.Item
-              onPress={() => {
-                setMenuVisible(null);
-                router.push(`/finance/expenses/edit/${item.id}`);
-              }}
-              title="Modifier"
-              leadingIcon="pencil"
-            />
-            <Menu.Item
-              onPress={() => {
-                setMenuVisible(null);
-                setSelectedExpense(item);
-                setDeleteDialogVisible(true);
-              }}
-              title="Supprimer"
-              leadingIcon="delete"
-            />
-          </Menu>
+          {canEdit && (
+            <Menu
+              visible={menuVisible === item.id}
+              onDismiss={() => setMenuVisible(null)}
+              anchor={<IconButton icon="dots-vertical" onPress={() => setMenuVisible(item.id)} />}
+            >
+              <Menu.Item
+                onPress={() => {
+                  setMenuVisible(null);
+                  router.push(`/finance/expenses/edit/${item.id}`);
+                }}
+                title="Modifier"
+                leadingIcon="pencil"
+              />
+              <Menu.Item
+                onPress={() => {
+                  setMenuVisible(null);
+                  setSelectedExpense(item);
+                  setDeleteDialogVisible(true);
+                }}
+                title="Supprimer"
+                leadingIcon="delete"
+              />
+            </Menu>
+          )}
         </View>
         <Text variant="titleSmall" style={[styles.amount, { color: theme.colors.primary }]}>
           {formatCurrency(item.amount)}
@@ -487,9 +493,9 @@ export default function ExpensesListScreen() {
             <EmptyState
               icon="tray"
               title="Aucune dépense"
-              message="Ajoutez votre première dépense"
-              actionLabel="Nouvelle dépense"
-              onAction={() => router.push('/finance/expenses/create')}
+              message={canEdit ? 'Ajoutez votre première dépense' : 'Aucune dépense enregistrée'}
+              actionLabel={canEdit ? 'Nouvelle dépense' : undefined}
+              onAction={canEdit ? () => router.push('/finance/expenses/create') : undefined}
             />
           ) : null
         }
@@ -501,12 +507,14 @@ export default function ExpensesListScreen() {
         onEndReachedThreshold={0.5}
       />
 
-      <FAB
-        icon="plus"
-        label="Nouvelle dépense"
-        style={styles.fab}
-        onPress={() => router.push('/finance/expenses/create')}
-      />
+      {canEdit && (
+        <FAB
+          icon="plus"
+          label="Nouvelle dépense"
+          style={styles.fab}
+          onPress={() => router.push('/finance/expenses/create')}
+        />
+      )}
 
       <Portal>
         <Dialog visible={deleteDialogVisible} onDismiss={() => setDeleteDialogVisible(false)}>

@@ -16,8 +16,13 @@ export default function CreateOtherIncomeScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { selectedDepotId } = useAppStore();
-  const { hasRole } = useAuthContext();
-  const canManage = hasRole(['ADMIN', 'GERANT']);
+  const canEdit = useAuthContext().hasRole(['ADMIN']);
+
+  React.useEffect(() => {
+    if (!canEdit) {
+      router.replace('/finance/other-incomes');
+    }
+  }, [canEdit, router]);
   const createMutation = useCreateOtherIncome();
   const { data: depots } = useDepots();
 
@@ -69,11 +74,16 @@ export default function CreateOtherIncomeScreen() {
     }
   };
 
+  if (!canEdit) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ErrorMessage message="Accès réservé aux administrateurs." />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {!canManage ? (
-        <ErrorMessage message="Accès réservé aux administrateurs et gérants." />
-      ) : (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
           <ScrollView contentContainerStyle={styles.scrollContent}>
             <Text variant="headlineSmall" style={styles.title}>
@@ -140,7 +150,6 @@ export default function CreateOtherIncomeScreen() {
             </Button>
           </ScrollView>
         </KeyboardAvoidingView>
-      )}
 
       <Snackbar visible={!!error} onDismiss={() => setError('')} duration={3000}>
         {error}

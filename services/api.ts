@@ -17,10 +17,14 @@ const configuredBaseUrl =
   fallbackBaseUrl;
 
 const isLocalhost = configuredBaseUrl.includes('localhost') || configuredBaseUrl.includes('127.0.0.1');
-const runtimeApiBaseUrl =
+let runtimeApiBaseUrl =
   Platform.OS === 'android' && !Constants.isDevice && isLocalhost
     ? 'http://10.0.2.2:3000/api/v1'
     : configuredBaseUrl;
+// S'assurer que baseURL se termine par / pour éviter v1auth au lieu de v1/auth
+if (runtimeApiBaseUrl && !runtimeApiBaseUrl.endsWith('/')) {
+  runtimeApiBaseUrl += '/';
+}
 
 if (Platform.OS === 'android' && Constants.isDevice && isLocalhost) {
   console.warn(

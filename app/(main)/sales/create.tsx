@@ -1,5 +1,6 @@
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Spacing } from '@/constants/theme';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useDepots } from '@/hooks/useDepots';
 import { useProducts } from '@/hooks/useProducts';
 import { useCreatePayment, useCreateSale } from '@/hooks/useSales';
@@ -36,6 +37,13 @@ export default function CreateSaleScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { selectedDepotId, setSelectedDepotId } = useAppStore();
+  const isAdmin = useAuthContext().hasRole(['ADMIN']);
+
+  React.useEffect(() => {
+    if (!isAdmin) {
+      router.replace('/sales');
+    }
+  }, [isAdmin, router]);
 
   const [search, setSearch] = useState('');
   const [quantityModalVisible, setQuantityModalVisible] = useState(false);

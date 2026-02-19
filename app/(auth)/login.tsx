@@ -10,7 +10,7 @@ import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } f
 import { Button, Chip, Dialog, Portal, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const logo = require('../../assets/images/logo_app.png');
+const logo = require('../../assets/images/icon.png');
 
 export default function LoginScreen() {
   const theme = useTheme();
@@ -173,11 +173,11 @@ export default function LoginScreen() {
               }
             />
 
-            <Link href="/forgot-password" asChild>
+            {/* <Link href="/forgot-password" asChild>
               <Button mode="text" style={styles.forgotButton}>
                 Mot de passe oublié ?
               </Button>
-            </Link>
+            </Link> */}
 
             <Button
               mode="contained"
@@ -197,11 +197,11 @@ export default function LoginScreen() {
               <View style={styles.dividerLine} />
             </View>
 
-            <Link href="/otp-verification" asChild>
+            {/* <Link href="/otp-verification" asChild>
               <Button mode="outlined" icon="phone" style={styles.otpButton}>
                 Se connecter par SMS
               </Button>
-            </Link>
+            </Link> */}
 
             <View style={styles.registerContainer}>
               <Text variant="bodyMedium">Pas de compte ? </Text>

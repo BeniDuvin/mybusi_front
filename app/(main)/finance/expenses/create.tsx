@@ -17,8 +17,13 @@ export default function CreateExpenseScreen() {
   const router = useRouter();
   const { selectedDepotId } = useAppStore();
   const createMutation = useCreateExpense();
-  const { hasRole } = useAuthContext();
-  const canManage = hasRole(['ADMIN', 'GERANT']);
+  const canEdit = useAuthContext().hasRole(['ADMIN']);
+
+  React.useEffect(() => {
+    if (!canEdit) {
+      router.replace('/finance/expenses');
+    }
+  }, [canEdit, router]);
   const { data: depots } = useDepots();
 
   const [formData, setFormData] = useState<CreateExpenseRequest>({
@@ -71,11 +76,16 @@ export default function CreateExpenseScreen() {
     }
   };
 
+  if (!canEdit) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ErrorMessage message="Accès réservé aux administrateurs." />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {!canManage ? (
-        <ErrorMessage message="Accès réservé aux administrateurs et gérants." />
-      ) : (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
@@ -147,7 +157,6 @@ export default function CreateExpenseScreen() {
             </Button>
           </ScrollView>
         </KeyboardAvoidingView>
-      )}
 
       <Snackbar visible={!!error} onDismiss={() => setError('')} duration={3000}>
         {error}

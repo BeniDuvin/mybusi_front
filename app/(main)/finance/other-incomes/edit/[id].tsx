@@ -17,8 +17,13 @@ export default function EditOtherIncomeScreen() {
   const router = useRouter();
   const { id: idParam } = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
-  const { hasRole } = useAuthContext();
-  const canManage = hasRole(['ADMIN', 'GERANT']);
+  const canEdit = useAuthContext().hasRole(['ADMIN']);
+
+  React.useEffect(() => {
+    if (!canEdit) {
+      router.replace('/finance/other-incomes');
+    }
+  }, [canEdit, router]);
   const updateMutation = useUpdateOtherIncome();
   const { data: depots } = useDepots();
 
@@ -94,11 +99,16 @@ export default function EditOtherIncomeScreen() {
     );
   }
 
+  if (!canEdit) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ErrorMessage message="Accès réservé aux administrateurs." />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {!canManage ? (
-        <ErrorMessage message="Accès réservé aux administrateurs et gérants." />
-      ) : (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
           <ScrollView contentContainerStyle={styles.scrollContent}>
             <Text variant="headlineSmall" style={styles.title}>
@@ -164,7 +174,7 @@ export default function EditOtherIncomeScreen() {
             </Button>
           </ScrollView>
         </KeyboardAvoidingView>
-      )}
+
       <Snackbar visible={!!error} onDismiss={() => setError('')} duration={3000}>
         {error}
       </Snackbar>
