@@ -331,6 +331,23 @@ export default function DashboardScreen() {
     return (productsData?.data || []).reduce((sum, product) => sum + getCurrentStock(product), 0);
   }, [productsData?.data, selectedDepotId]);
 
+  // Stock par conditionnement (tailles standards boissons)
+  const PACKAGING_SIZES: Record<string, { label: string; size: number }> = {
+    UNITE: { label: 'Unité', size: 1 },
+    CASIER: { label: 'Casier', size: 24 },
+    CARTON: { label: 'Carton', size: 12 },
+    PAQUET: { label: 'Paquet', size: 6 },
+  };
+  const stockByPackaging = useMemo(() => {
+    const total = totalAvailableStock;
+    return Object.entries(PACKAGING_SIZES).map(([key, { label, size }]) => ({
+      key,
+      label,
+      size,
+      value: key === 'UNITE' ? total : Math.floor(total / size),
+    }));
+  }, [totalAvailableStock]);
+
   const monthExpensesValue = useMemo(() => {
     return (monthExpensesData?.data || []).reduce(
       (sum, expense) => sum + toNumber(expense.amount),
@@ -493,6 +510,37 @@ export default function DashboardScreen() {
               subtitle={canViewFinance ? 'Quantité totale disponible' : 'Accès limité'}
             />
           </View>
+
+          {canViewFinance ? (
+            <>
+              <View style={styles.sectionHeader}>
+                <MaterialCommunityIcons name="package-variant" size={18} color={theme.colors.primary} />
+                <Text variant="titleMedium" style={styles.sectionHeaderText}>
+                  Stock par conditionnement
+                </Text>
+              </View>
+            <Card style={styles.chartCard}>
+              <Card.Content>
+                <View style={styles.packagingGrid}>
+                  {stockByPackaging.map((item) => (
+                    <View key={item.key} style={styles.packagingItem}>
+                      <Text variant="labelSmall" style={styles.packagingLabel}>
+                        {item.label}
+                        {item.key !== 'UNITE' ? ` (${item.size}u)` : ''}
+                      </Text>
+                      <Text variant="titleMedium" style={[styles.packagingValue, { color: theme.colors.primary }]}>
+                        {item.value}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+                <Text variant="bodySmall" style={styles.packagingHint}>
+                  Équivalents basés sur le stock total en unités
+                </Text>
+              </Card.Content>
+            </Card>
+            </>
+          ) : null}
         </View>
 
         <View style={styles.sectionHeader}>
@@ -715,6 +763,32 @@ const styles = StyleSheet.create({
   },
   kpiGrid: {
     marginBottom: Spacing.lg,
+  },
+  packagingGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  packagingItem: {
+    flex: 1,
+    minWidth: 70,
+    padding: Spacing.sm,
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: BorderRadius.sm,
+  },
+  packagingLabel: {
+    opacity: 0.75,
+    marginBottom: Spacing.xs,
+  },
+  packagingValue: {
+    fontWeight: 'bold',
+  },
+  packagingHint: {
+    opacity: 0.6,
+    fontSize: 11,
+    textAlign: 'center',
   },
   kpiRow: {
     flexDirection: 'row',
