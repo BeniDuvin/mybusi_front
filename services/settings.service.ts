@@ -11,7 +11,7 @@ export const DEFAULT_APP_SETTINGS = {
   helpText:
     'Pour toute assistance, contactez votre administrateur ou le support. Vous pouvez aussi consulter le guide interne de votre dépôt.',
   aboutText:
-    "MyDepot est une application de gestion de dépôt de boissons. Elle permet le suivi des ventes, achats, stocks et finances.",
+    "MyDepot est un logiciel de gestion commerciale pour tous types de commerces. Il permet le suivi des ventes, achats, stocks, finances, clients et fournisseurs.",
 };
 
 export type AppSettings = typeof DEFAULT_APP_SETTINGS;

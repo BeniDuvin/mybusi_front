@@ -331,7 +331,7 @@ export default function DashboardScreen() {
     return (productsData?.data || []).reduce((sum, product) => sum + getCurrentStock(product), 0);
   }, [productsData?.data, selectedDepotId]);
 
-  // Stock par conditionnement (tailles standards boissons)
+  // Stock par conditionnement (tailles standards)
   const PACKAGING_SIZES: Record<string, { label: string; size: number }> = {
     UNITE: { label: 'Unité', size: 1 },
     CASIER: { label: 'Casier', size: 24 },

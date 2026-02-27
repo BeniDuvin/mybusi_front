@@ -100,7 +100,7 @@ export default function LoginScreen() {
           <View style={styles.header}>
             <Image source={logo} style={styles.logo} resizeMode="contain" />
             <Text variant="titleMedium" style={styles.subtitle}>
-              Gestion de dépôt de boissons
+              Logiciel de gestion commerciale
             </Text>
             <Text variant="bodySmall" style={styles.country}>
               🇨🇬 Congo Brazzaville

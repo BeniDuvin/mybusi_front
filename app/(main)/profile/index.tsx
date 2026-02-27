@@ -184,7 +184,7 @@ export default function ProfileScreen() {
             />
             <Divider />
             <List.Item
-              title="Catégories de boissons"
+              title="Catégories"
               description="Créer et gérer les catégories"
               left={(props) => <List.Icon {...props} icon="tag" />}
               right={(props) => <List.Icon {...props} icon="chevron-right" />}

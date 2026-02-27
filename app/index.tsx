@@ -83,7 +83,7 @@ export default function Index() {
           MyDepot
         </Text>
         <Text variant="bodyMedium" style={styles.subtitle}>
-          Gestion de dépôt de boissons
+          Logiciel de gestion commerciale
         </Text>
       </View>
     </SafeAreaView>

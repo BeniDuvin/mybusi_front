@@ -1,6 +1,6 @@
-# MyDepot Frontend - Application Mobile de Gestion de Dépôt de Boisson 🇨🇬
+# MyDepot - Logiciel de Gestion Commerciale 🇨🇬
 
-Application mobile React Native développée avec Expo pour la gestion complète d'un dépôt de boissons au **Congo Brazzaville**.
+Application mobile React Native développée avec Expo pour la gestion complète de **tout type de commerce** (ventes, achats, stocks, finances, clients, fournisseurs, etc.) au **Congo Brazzaville** et ailleurs.
 
 ## 🚀 Technologies
 
