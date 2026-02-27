@@ -10,6 +10,7 @@ import { formatCurrency } from '@/utils/format';
 import { Spacing } from '@/constants/theme';
 import { useDepots } from '@/hooks/useDepots';
 import { Picker } from '@react-native-picker/picker';
+import { PickerField } from '@/components/ui/PickerField';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 
@@ -225,22 +226,18 @@ export default function FinanceHomeScreen() {
         </View>
 
         <View style={styles.filtersRow}>
-          <View style={styles.filterItem}>
-            <Text variant="bodySmall" style={styles.filterLabel}>
-              Dépôt
-            </Text>
-            <Picker
-              selectedValue={selectedDepotId || ''}
-              onValueChange={(value) => setSelectedDepotId(value || null)}
-              style={styles.filterPicker}
-              itemStyle={styles.filterPickerItem}
-            >
-              <Picker.Item label="Tous" value="" />
-              {depots?.data?.map((depot) => (
-                <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-              ))}
-            </Picker>
-          </View>
+          <PickerField
+            variant="filter"
+            label="Dépôt"
+            selectedValue={selectedDepotId || ''}
+            onValueChange={(value) => setSelectedDepotId(value || null)}
+            containerStyle={styles.filterPickerField}
+          >
+            <Picker.Item label="Tous" value="" />
+            {depots?.data?.map((depot) => (
+              <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
+            ))}
+          </PickerField>
         </View>
 
         <View style={styles.periodTabsRow}>
@@ -611,6 +608,10 @@ const styles = StyleSheet.create({
   filterLabel: {
     marginLeft: Spacing.xs,
     opacity: 0.7,
+  },
+  filterPickerField: {
+    flex: 1,
+    marginBottom: 0,
   },
   filterPicker: {
     height: 36,

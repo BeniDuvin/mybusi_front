@@ -10,6 +10,7 @@ import type { OtherIncome } from '@/types';
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/format';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
+import { PickerField } from '@/components/ui/PickerField';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { FlatList, Platform, RefreshControl, StyleSheet, View } from 'react-native';
@@ -22,7 +23,7 @@ export default function OtherIncomesListScreen() {
   const { selectedDepotId, setSelectedDepotId } = useAppStore();
   const { hasRole } = useAuthContext();
   const canManage = hasRole(['ADMIN', 'GERANT']);
-  const canEdit = hasRole(['ADMIN']);
+  const isAdmin = hasRole(['ADMIN']);
   const { data: depots } = useDepots();
   const deleteMutation = useDeleteOtherIncome();
 
@@ -121,25 +122,21 @@ export default function OtherIncomesListScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.filtersRow}>
-        <View style={styles.filterItem}>
-          <Text variant="bodySmall" style={styles.filterLabel}>
-            Dépôt
-          </Text>
-          <Picker
-            selectedValue={selectedDepotId || ''}
-            onValueChange={(value) => {
-              setSelectedDepotId(value || null);
-              setPage(1);
-            }}
-            style={styles.filterPicker}
-            itemStyle={styles.filterPickerItem}
-          >
-            <Picker.Item label="Tous" value="" />
-            {depots?.data?.map((depot) => (
-              <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-            ))}
-          </Picker>
-        </View>
+        <PickerField
+          variant="filter"
+          label="Dépôt"
+          selectedValue={selectedDepotId || ''}
+          onValueChange={(value) => {
+            setSelectedDepotId(value || null);
+            setPage(1);
+          }}
+          containerStyle={styles.filterPickerField}
+        >
+          <Picker.Item label="Tous" value="" />
+          {depots?.data?.map((depot) => (
+            <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
+          ))}
+        </PickerField>
         <View style={styles.filterItem}>
           <TextInput
             label="Rubrique"
@@ -218,7 +215,7 @@ export default function OtherIncomesListScreen() {
         renderItem={({ item }) => (
           <Card
             style={styles.card}
-            onPress={() => canEdit && router.push({ pathname: '/finance/other-incomes/edit/[id]', params: { id: item.id } })}
+            onPress={() => canManage && router.push({ pathname: '/finance/other-incomes/edit/[id]', params: { id: item.id } })}
           >
             <Card.Content>
               <View style={styles.header}>
@@ -239,7 +236,7 @@ export default function OtherIncomesListScreen() {
                     Utilisateur: {item.user ? `${item.user.firstName} ${item.user.lastName}` : '—'}
                   </Text>
                 </View>
-                {canEdit && (
+                {canManage && (
                   <Menu
                     visible={menuVisible === item.id}
                     onDismiss={() => setMenuVisible(null)}
@@ -253,15 +250,17 @@ export default function OtherIncomesListScreen() {
                         router.push({ pathname: '/finance/other-incomes/edit/[id]', params: { id: item.id } });
                       }}
                     />
-                    <Menu.Item
-                      title="Supprimer"
-                      leadingIcon="delete"
-                      onPress={() => {
-                        setMenuVisible(null);
-                        setSelectedItem(item);
-                        setDeleteDialogVisible(true);
-                      }}
-                    />
+                    {isAdmin && (
+                      <Menu.Item
+                        title="Supprimer"
+                        leadingIcon="delete"
+                        onPress={() => {
+                          setMenuVisible(null);
+                          setSelectedItem(item);
+                          setDeleteDialogVisible(true);
+                        }}
+                      />
+                    )}
                   </Menu>
                 )}
               </View>
@@ -276,9 +275,9 @@ export default function OtherIncomesListScreen() {
             <EmptyState
               icon="cash-plus"
               title="Aucune entrée"
-              message={canEdit ? 'Ajoutez votre première entrée hors ventes' : 'Aucune entrée enregistrée'}
-              actionLabel={canEdit ? 'Nouvelle entrée' : undefined}
-              onAction={canEdit ? () => router.push('/finance/other-incomes/create') : undefined}
+              message={canManage ? 'Ajoutez votre première entrée hors ventes' : 'Aucune entrée enregistrée'}
+              actionLabel={canManage ? 'Nouvelle entrée' : undefined}
+              onAction={canManage ? () => router.push('/finance/other-incomes/create') : undefined}
             />
           ) : null
         }
@@ -290,7 +289,7 @@ export default function OtherIncomesListScreen() {
         onEndReachedThreshold={0.5}
       />
 
-      {canEdit && (
+      {canManage && (
         <FAB icon="plus" label="Nouvelle entrée" style={styles.fab} onPress={() => router.push('/finance/other-incomes/create')} />
       )}
 
@@ -318,8 +317,7 @@ const styles = StyleSheet.create({
   actionsRow: { justifyContent: 'space-between', alignItems: 'center' },
   filterItem: { flex: 1 },
   filterLabel: { marginLeft: Spacing.xs, opacity: 0.7 },
-  filterPicker: { height: 36, color: '#111827' },
-  filterPickerItem: { height: 36, fontSize: 12, color: '#111827' },
+  filterPickerField: { flex: 1, marginBottom: 0 },
   dateButton: { flex: 1 },
   listContent: { padding: Spacing.md, paddingBottom: 100 },
   card: { marginBottom: Spacing.md },

@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
 import { Picker } from '@react-native-picker/picker';
+import { PickerField } from '@/components/ui/PickerField';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
@@ -17,13 +18,13 @@ export default function CreateExpenseScreen() {
   const router = useRouter();
   const { selectedDepotId } = useAppStore();
   const createMutation = useCreateExpense();
-  const canEdit = useAuthContext().hasRole(['ADMIN']);
+  const canManage = useAuthContext().hasRole(['ADMIN', 'GERANT']);
 
   React.useEffect(() => {
-    if (!canEdit) {
+    if (!canManage) {
       router.replace('/finance/expenses');
     }
-  }, [canEdit, router]);
+  }, [canManage, router]);
   const { data: depots } = useDepots();
 
   const [formData, setFormData] = useState<CreateExpenseRequest>({
@@ -76,10 +77,10 @@ export default function CreateExpenseScreen() {
     }
   };
 
-  if (!canEdit) {
+  if (!canManage) {
     return (
       <SafeAreaView style={styles.container}>
-        <ErrorMessage message="Accès réservé aux administrateurs." />
+        <ErrorMessage message="Accès réservé aux administrateurs et gérants." />
       </SafeAreaView>
     );
   }
@@ -95,22 +96,16 @@ export default function CreateExpenseScreen() {
               Nouvelle dépense
             </Text>
 
-            <View style={styles.pickerWrapper}>
-              <Text variant="bodySmall" style={styles.pickerLabel}>
-                Dépôt *
-              </Text>
-              <Picker
-                selectedValue={formData.depotId}
-                onValueChange={(value) => setFormData({ ...formData, depotId: value || '' })}
-                style={styles.picker}
-                itemStyle={styles.pickerItem}
-              >
-                <Picker.Item label="Sélectionner un dépôt" value="" />
-                {depots?.data?.map((depot) => (
-                  <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-                ))}
-              </Picker>
-            </View>
+            <PickerField
+              label="Dépôt *"
+              selectedValue={formData.depotId}
+              onValueChange={(value) => setFormData({ ...formData, depotId: value || '' })}
+            >
+              <Picker.Item label="Sélectionner un dépôt" value="" />
+              {depots?.data?.map((depot) => (
+                <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
+              ))}
+            </PickerField>
 
           <TextInput
             label="Catégorie *"
@@ -185,27 +180,6 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: Spacing.md,
-  },
-  pickerWrapper: {
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderRadius: 10,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-    overflow: 'hidden',
-  },
-  pickerLabel: {
-    marginLeft: Spacing.sm,
-    marginTop: Spacing.xs,
-    opacity: 0.7,
-  },
-  picker: {
-    height: 48,
-    color: '#111827',
-  },
-  pickerItem: {
-    fontSize: 14,
-    color: '#111827',
   },
   submitButton: {
     marginTop: Spacing.md,

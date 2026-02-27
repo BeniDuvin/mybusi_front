@@ -5,6 +5,7 @@ import { useDepots } from '@/hooks/useDepots';
 import { useBrands, useCategories, useProduct, useUpdateProduct } from '@/hooks/useProducts';
 import type { CreateProductRequest } from '@/types';
 import { Picker } from '@react-native-picker/picker';
+import { PickerField } from '@/components/ui/PickerField';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -377,39 +378,27 @@ export default function EditProductScreen() {
             />
           </View>
 
-          <View style={styles.pickerContainer}>
-            <Text variant="bodyMedium" style={styles.pickerLabel}>
-              Catégorie *
-            </Text>
-            <Picker
-              selectedValue={formData.categoryId}
-              onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
-              style={styles.picker}
-              itemStyle={styles.pickerItem}
-            >
-              <Picker.Item label="Sélectionner une catégorie" value="" />
-              {categories?.map((cat) => (
-                <Picker.Item key={cat.id} label={cat.name} value={cat.id} />
-              ))}
-            </Picker>
-          </View>
+          <PickerField
+            label="Catégorie *"
+            selectedValue={formData.categoryId}
+            onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
+          >
+            <Picker.Item label="Sélectionner une catégorie" value="" />
+            {categories?.map((cat) => (
+              <Picker.Item key={cat.id} label={cat.name} value={cat.id} />
+            ))}
+          </PickerField>
 
-          <View style={styles.pickerContainer}>
-            <Text variant="bodyMedium" style={styles.pickerLabel}>
-              Marque *
-            </Text>
-            <Picker
-              selectedValue={formData.brandId}
-              onValueChange={(value) => setFormData({ ...formData, brandId: value })}
-              style={styles.picker}
-              itemStyle={styles.pickerItem}
-            >
-              <Picker.Item label="Sélectionner une marque" value="" />
-              {brands?.map((brand) => (
-                <Picker.Item key={brand.id} label={brand.name} value={brand.id} />
-              ))}
-            </Picker>
-          </View>
+          <PickerField
+            label="Marque *"
+            selectedValue={formData.brandId}
+            onValueChange={(value) => setFormData({ ...formData, brandId: value })}
+          >
+            <Picker.Item label="Sélectionner une marque" value="" />
+            {brands?.map((brand) => (
+              <Picker.Item key={brand.id} label={brand.name} value={brand.id} />
+            ))}
+          </PickerField>
 
           <TextInput
             label="Dépôt (non modifiable)"
@@ -570,27 +559,6 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: Spacing.md,
-  },
-  pickerContainer: {
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: '#999',
-    borderRadius: 4,
-  },
-  pickerLabel: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-    opacity: 0.6,
-  },
-  picker: {
-    marginHorizontal: Spacing.sm,
-    color: '#111827',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
-  },
-  pickerItem: {
-    fontSize: 14,
-    color: '#111827',
   },
   imageSection: {
     marginBottom: Spacing.md,

@@ -11,6 +11,7 @@ import type { Purchase } from '@/types';
 import { PURCHASE_STATUS_LABELS } from '@/utils/constants';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import { Picker } from '@react-native-picker/picker';
+import { PickerField } from '@/components/ui/PickerField';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
@@ -28,7 +29,8 @@ export default function PurchasesListScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { selectedDepotId, setSelectedDepotId } = useAppStore();
-  const isAdmin = useAuthContext().hasRole(['ADMIN']);
+  const { hasRole } = useAuthContext();
+  const canManage = hasRole(['ADMIN', 'GERANT']);
 
   const [page, setPage] = useState(1);
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
@@ -83,7 +85,7 @@ export default function PurchasesListScreen() {
     return (
     <Card
       style={[styles.card, { borderColor: theme.colors.outline }]}
-      onPress={() => isAdmin && router.push(`/purchases/edit/${item.id}`)}
+      onPress={() => canManage && router.push(`/purchases/edit/${item.id}`)}
     >
       <Card.Content>
         <View style={styles.header}>
@@ -104,7 +106,7 @@ export default function PurchasesListScreen() {
             </Text>
           </View>
 
-          {isAdmin && (
+          {canManage && (
             <Menu
               visible={menuVisible === item.id}
               onDismiss={() => setMenuVisible(null)}
@@ -176,46 +178,38 @@ export default function PurchasesListScreen() {
       />
 
       <View style={styles.filtersRow}>
-        <View style={styles.filterItem}>
-          <Text variant="bodySmall" style={styles.filterLabel}>
-            Dépôt
-          </Text>
-          <Picker
-            selectedValue={depotId || selectedDepotId || ''}
-            onValueChange={(value) => {
-              setDepotId(value);
-              setSelectedDepotId(value || null);
-              setPage(1);
-            }}
-            style={styles.filterPicker}
-            itemStyle={styles.filterPickerItem}
-          >
-            <Picker.Item label="Tous" value="" />
-            {depots?.data?.map((depot) => (
-              <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-            ))}
-          </Picker>
-        </View>
+        <PickerField
+          variant="filter"
+          label="Dépôt"
+          selectedValue={depotId || selectedDepotId || ''}
+          onValueChange={(value) => {
+            setDepotId(value);
+            setSelectedDepotId(value || null);
+            setPage(1);
+          }}
+          containerStyle={styles.filterPickerField}
+        >
+          <Picker.Item label="Tous" value="" />
+          {depots?.data?.map((depot) => (
+            <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
+          ))}
+        </PickerField>
 
-        <View style={styles.filterItem}>
-          <Text variant="bodySmall" style={styles.filterLabel}>
-            Fournisseur
-          </Text>
-          <Picker
-            selectedValue={supplierId}
-            onValueChange={(value) => {
-              setSupplierId(value);
-              setPage(1);
-            }}
-            style={styles.filterPicker}
-            itemStyle={styles.filterPickerItem}
-          >
-            <Picker.Item label="Tous" value="" />
-            {suppliers?.data?.map((supplier) => (
-              <Picker.Item key={supplier.id} label={supplier.name} value={supplier.id} />
-            ))}
-          </Picker>
-        </View>
+        <PickerField
+          variant="filter"
+          label="Fournisseur"
+          selectedValue={supplierId}
+          onValueChange={(value) => {
+            setSupplierId(value);
+            setPage(1);
+          }}
+          containerStyle={styles.filterPickerField}
+        >
+          <Picker.Item label="Tous" value="" />
+          {suppliers?.data?.map((supplier) => (
+            <Picker.Item key={supplier.id} label={supplier.name} value={supplier.id} />
+          ))}
+        </PickerField>
       </View>
 
       <FlatList
@@ -239,9 +233,9 @@ export default function PurchasesListScreen() {
             <EmptyState
               icon="shippingbox"
               title="Aucun achat"
-              message={isAdmin ? 'Créez votre premier achat' : 'Aucun achat enregistré'}
-              actionLabel={isAdmin ? 'Nouvel achat' : undefined}
-              onAction={isAdmin ? () => router.push('/purchases/create') : undefined}
+              message={canManage ? 'Créez votre premier achat' : 'Aucun achat enregistré'}
+              actionLabel={canManage ? 'Nouvel achat' : undefined}
+              onAction={canManage ? () => router.push('/purchases/create') : undefined}
             />
           ) : null
         }
@@ -253,7 +247,7 @@ export default function PurchasesListScreen() {
         onEndReachedThreshold={0.5}
       />
 
-      {isAdmin && (
+      {canManage && (
         <FAB
           icon="plus"
           label="Nouvel achat"
@@ -275,29 +269,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.sm,
   },
-  filterItem: {
+  filterPickerField: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#999',
-    borderRadius: 4,
-    height: 62,
-    justifyContent: 'center',
-  },
-  filterLabel: {
-    paddingHorizontal: Spacing.sm,
-    paddingTop: Spacing.xs,
-    opacity: 0.6,
-    fontSize: 11,
-  },
-  filterPicker: {
-    height: 34,
-    marginTop: -2,
-    color: '#111827',
-  },
-  filterPickerItem: {
-    height: 34,
-    fontSize: 12,
-    color: '#111827',
+    marginBottom: 0,
   },
   listContent: {
     padding: Spacing.md,

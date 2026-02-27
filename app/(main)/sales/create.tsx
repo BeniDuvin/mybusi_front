@@ -15,6 +15,7 @@ import {
 } from '@/utils/constants';
 import { formatCurrency } from '@/utils/format';
 import { Picker } from '@react-native-picker/picker';
+import { PickerField } from '@/components/ui/PickerField';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Image, StyleSheet, View } from 'react-native';
@@ -37,13 +38,13 @@ export default function CreateSaleScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { selectedDepotId, setSelectedDepotId } = useAppStore();
-  const isAdmin = useAuthContext().hasRole(['ADMIN']);
+  const canManage = useAuthContext().hasRole(['ADMIN', 'GERANT']);
 
   React.useEffect(() => {
-    if (!isAdmin) {
+    if (!canManage) {
       router.replace('/sales');
     }
-  }, [isAdmin, router]);
+  }, [canManage, router]);
 
   const [search, setSearch] = useState('');
   const [quantityModalVisible, setQuantityModalVisible] = useState(false);
@@ -145,10 +146,10 @@ export default function CreateSaleScreen() {
   }, [subtotal, discount, tax]);
 
   useEffect(() => {
-    if (paymentAmount === '' && total > 0) {
+    if (total > 0) {
       setPaymentAmount(total.toString());
     }
-  }, [total, paymentAmount]);
+  }, [total]);
 
   const getPackageLabel = (type: PackagingType) => {
     switch (type) {
@@ -228,8 +229,8 @@ export default function CreateSaleScreen() {
         setError('Veuillez saisir un montant de paiement valide');
         return;
       }
-      if (amount > total) {
-        setError('Le montant payé ne peut pas dépasser le total');
+      if (Math.abs(amount - total) > 0.01) {
+        setError('Le montant payé doit être égal au total');
         return;
       }
 
@@ -266,10 +267,9 @@ export default function CreateSaleScreen() {
       });
 
       if (payNow) {
-        const amount = parseFloat(paymentAmount) || 0;
         await createPaymentMutation.mutateAsync({
           saleId: sale.id,
-          amount,
+          amount: total,
           method: paymentMethod,
           mobileMoneyProvider:
             paymentMethod === PAYMENT_METHODS.MOBILE_MONEY ? mobileMoneyProvider : undefined,
@@ -387,22 +387,16 @@ export default function CreateSaleScreen() {
                 <Text variant="titleSmall" style={styles.sectionTitle}>
                   Dépôt
                 </Text>
-                <View style={[styles.pickerContainer, { borderColor: theme.colors.outline }]}>
-                  <Text variant="bodyMedium" style={styles.pickerLabel}>
-                    Dépôt *
-                  </Text>
-                  <Picker
-                    selectedValue={selectedDepotId || ''}
-                    onValueChange={(value) => setSelectedDepotId(value || null)}
-                    dropdownIconColor={theme.colors.onSurface}
-                    style={{ color: theme.colors.onSurface }}
-                  >
-                    <Picker.Item label="Sélectionner un dépôt" value="" />
-                    {depots?.data?.map((depot) => (
-                      <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-                    ))}
-                  </Picker>
-                </View>
+                <PickerField
+                  label="Dépôt *"
+                  selectedValue={selectedDepotId || ''}
+                  onValueChange={(value) => setSelectedDepotId(value || null)}
+                >
+                  <Picker.Item label="Sélectionner un dépôt" value="" />
+                  {depots?.data?.map((depot) => (
+                    <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
+                  ))}
+                </PickerField>
 
                 <SearchBar placeholder="Rechercher un produit..." onSearch={setSearch} />
 
@@ -529,58 +523,45 @@ export default function CreateSaleScreen() {
 
             {payNow && (
               <View>
-                <View style={styles.pickerContainer}>
-                  <Text variant="bodyMedium" style={styles.pickerLabel}>
-                    Méthode de paiement
-                  </Text>
-                  <Picker
-                    selectedValue={paymentMethod}
-                    onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}
-                    dropdownIconColor={theme.colors.onSurface}
-                    style={{ color: theme.colors.onSurface }}
-                  >
-                    {Object.values(PAYMENT_METHODS).map((method) => (
-                      <Picker.Item
-                        key={method}
-                        label={PAYMENT_METHOD_LABELS[method]}
-                        value={method}
-                      />
-                    ))}
-                  </Picker>
-                </View>
+                <PickerField
+                  label="Méthode de paiement"
+                  selectedValue={paymentMethod}
+                  onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}
+                >
+                  {Object.values(PAYMENT_METHODS).map((method) => (
+                    <Picker.Item
+                      key={method}
+                      label={PAYMENT_METHOD_LABELS[method]}
+                      value={method}
+                    />
+                  ))}
+                </PickerField>
 
                 <TextInput
                   label="Montant payé"
                   value={paymentAmount}
-                  onChangeText={setPaymentAmount}
                   mode="outlined"
-                  keyboardType="numeric"
                   left={<TextInput.Affix text="FCFA" />}
                   style={styles.input}
+                  editable={false}
                 />
 
                 {paymentMethod === PAYMENT_METHODS.MOBILE_MONEY && (
                   <>
-                    <View style={styles.pickerContainer}>
-                      <Text variant="bodyMedium" style={styles.pickerLabel}>
-                        Provider Mobile Money
-                      </Text>
-                      <Picker
-                        selectedValue={mobileMoneyProvider}
-                        onValueChange={(value) => setMobileMoneyProvider(value as any)}
-                        dropdownIconColor={theme.colors.onSurface}
-                        style={{ color: theme.colors.onSurface }}
-                      >
-                        <Picker.Item label="Sélectionner un provider" value="" />
-                        {Object.values(MOBILE_MONEY_PROVIDERS).map((provider) => (
-                          <Picker.Item
-                            key={provider}
-                            label={MOBILE_MONEY_PROVIDER_LABELS[provider]}
-                            value={provider}
-                          />
-                        ))}
-                      </Picker>
-                    </View>
+                    <PickerField
+                      label="Provider Mobile Money"
+                      selectedValue={mobileMoneyProvider}
+                      onValueChange={(value) => setMobileMoneyProvider(value as any)}
+                    >
+                      <Picker.Item label="Sélectionner un provider" value="" />
+                      {Object.values(MOBILE_MONEY_PROVIDERS).map((provider) => (
+                        <Picker.Item
+                          key={provider}
+                          label={MOBILE_MONEY_PROVIDER_LABELS[provider]}
+                          value={provider}
+                        />
+                      ))}
+                    </PickerField>
 
                     <TextInput
                       label="Numéro Mobile Money"
@@ -652,23 +633,17 @@ export default function CreateSaleScreen() {
             )}
           </View>
 
-          <View style={styles.pickerContainer}>
-            <Text variant="bodyMedium" style={styles.pickerLabel}>
-              Conditionnement *
-            </Text>
-            <Picker
-              selectedValue={linePackageType}
-              onValueChange={(value) => setLinePackageType(value as PackagingType)}
-              dropdownIconColor={theme.colors.onSurface}
-              style={{ color: theme.colors.onSurface }}
-            >
-              <Picker.Item label="Unité" value="UNITE" />
-              <Picker.Item label="Casier" value="CASIER" />
-              <Picker.Item label="Carton" value="CARTON" />
-              <Picker.Item label="Paquet" value="PAQUET" />
-              <Picker.Item label="Autre" value="AUTRE" />
-            </Picker>
-          </View>
+          <PickerField
+            label="Conditionnement *"
+            selectedValue={linePackageType}
+            onValueChange={(value) => setLinePackageType(value as PackagingType)}
+          >
+            <Picker.Item label="Unité" value="UNITE" />
+            <Picker.Item label="Casier" value="CASIER" />
+            <Picker.Item label="Carton" value="CARTON" />
+            <Picker.Item label="Paquet" value="PAQUET" />
+            <Picker.Item label="Autre" value="AUTRE" />
+          </PickerField>
 
           {linePackageType === 'AUTRE' && (
             <TextInput
@@ -759,17 +734,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontWeight: 'bold',
     marginBottom: Spacing.xs,
-  },
-  pickerContainer: {
-    marginHorizontal: 0,
-    marginBottom: Spacing.sm,
-    borderWidth: 1,
-    borderRadius: 10,
-  },
-  pickerLabel: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-    opacity: 0.6,
   },
   summaryRow: {
     flexDirection: 'row',

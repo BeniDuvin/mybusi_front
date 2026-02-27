@@ -16,13 +16,13 @@ export default function EditExpenseScreen() {
   const { id: idParam } = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const updateMutation = useUpdateExpense();
-  const canEdit = useAuthContext().hasRole(['ADMIN']);
+  const canManage = useAuthContext().hasRole(['ADMIN', 'GERANT']);
 
   useEffect(() => {
-    if (!canEdit) {
+    if (!canManage) {
       router.replace('/finance/expenses');
     }
-  }, [canEdit, router]);
+  }, [canManage, router]);
 
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<CreateExpenseRequest>({
@@ -102,10 +102,10 @@ export default function EditExpenseScreen() {
     );
   }
 
-  if (!canEdit) {
+  if (!canManage) {
     return (
       <SafeAreaView style={styles.container}>
-        <ErrorMessage message="Accès réservé aux administrateurs." />
+        <ErrorMessage message="Accès réservé aux administrateurs et gérants." />
       </SafeAreaView>
     );
   }

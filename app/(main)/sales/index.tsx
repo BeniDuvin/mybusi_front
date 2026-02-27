@@ -10,6 +10,7 @@ import { useAppStore } from '@/stores/app.store';
 import type { Sale } from '@/types';
 import { formatCurrency, formatDateTime } from '@/utils/format';
 import { Picker } from '@react-native-picker/picker';
+import { PickerField } from '@/components/ui/PickerField';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
@@ -30,7 +31,9 @@ export default function SalesListScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { selectedDepotId, setSelectedDepotId } = useAppStore();
-  const isAdmin = useAuthContext().hasRole(['ADMIN']);
+  const { hasRole } = useAuthContext();
+  const canManage = hasRole(['ADMIN', 'GERANT']);
+  const isAdmin = hasRole(['ADMIN']);
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -214,26 +217,22 @@ export default function SalesListScreen() {
       <SearchBar placeholder="Rechercher une vente..." onSearch={setSearch} />
 
       <View style={styles.filtersRow}>
-        <View style={styles.filterItem}>
-          <Text variant="bodySmall" style={styles.filterLabel}>
-            Dépôt
-          </Text>
-          <Picker
-            selectedValue={depotId || selectedDepotId || ''}
-            onValueChange={(value) => {
-              setDepotId(value);
-              setSelectedDepotId(value || null);
-              setPage(1);
-            }}
-            style={styles.filterPicker}
-            itemStyle={styles.filterPickerItem}
-          >
-            <Picker.Item label="Tous" value="" />
-            {depots?.data?.map((depot) => (
-              <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-            ))}
-          </Picker>
-        </View>
+        <PickerField
+          variant="filter"
+          label="Dépôt"
+          selectedValue={depotId || selectedDepotId || ''}
+          onValueChange={(value) => {
+            setDepotId(value);
+            setSelectedDepotId(value || null);
+            setPage(1);
+          }}
+          containerStyle={styles.filterPickerField}
+        >
+          <Picker.Item label="Tous" value="" />
+          {depots?.data?.map((depot) => (
+            <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
+          ))}
+        </PickerField>
       </View>
 
       <FlatList
@@ -257,9 +256,9 @@ export default function SalesListScreen() {
             <EmptyState
               icon="cart"
               title="Aucune vente"
-              message={isAdmin ? 'Commencez par créer votre première vente' : 'Aucune vente enregistrée'}
-              actionLabel={isAdmin ? 'Nouvelle vente' : undefined}
-              onAction={isAdmin ? () => router.push('/sales/create') : undefined}
+              message={canManage ? 'Commencez par créer votre première vente' : 'Aucune vente enregistrée'}
+              actionLabel={canManage ? 'Nouvelle vente' : undefined}
+              onAction={canManage ? () => router.push('/sales/create') : undefined}
             />
           ) : null
         }
@@ -271,7 +270,7 @@ export default function SalesListScreen() {
         onEndReachedThreshold={0.5}
       />
 
-      {isAdmin && (
+      {canManage && (
         <FAB
           icon="cart-plus"
           label="Nouvelle vente"
@@ -314,29 +313,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.sm,
   },
-  filterItem: {
+  filterPickerField: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#999',
-    borderRadius: 4,
-    height: 62,
-    justifyContent: 'center',
-  },
-  filterLabel: {
-    paddingHorizontal: Spacing.sm,
-    paddingTop: Spacing.xs,
-    opacity: 0.6,
-    fontSize: 11,
-  },
-  filterPicker: {
-    height: 34,
-    marginTop: -2,
-    color: '#111827',
-  },
-  filterPickerItem: {
-    height: 34,
-    fontSize: 12,
-    color: '#111827',
+    marginBottom: 0,
   },
   listContent: {
     padding: Spacing.md,

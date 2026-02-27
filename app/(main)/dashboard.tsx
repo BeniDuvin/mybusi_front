@@ -13,6 +13,7 @@ import type { Purchase, Sale } from '@/types';
 import { formatCurrency } from '@/utils/format';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
+import { PickerField } from '@/components/ui/PickerField';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -414,24 +415,18 @@ export default function DashboardScreen() {
         </Text>
 
         <View style={styles.filtersRow}>
-          <View style={styles.filterItem}>
-            <Text variant="bodySmall" style={styles.filterLabel}>
-              Dépôt
-            </Text>
-            <Picker
-              selectedValue={selectedDepotId || ''}
-              onValueChange={(value) => setSelectedDepotId(value || null)}
-              style={[styles.filterPicker, { color: '#000000', backgroundColor: '#FFFFFF' }]}
-              itemStyle={styles.filterPickerItem}
-              dropdownIconColor="#000000"
-              mode="dropdown"
-            >
-              <Picker.Item label="Tous" value="" color="#000000" />
-              {depots?.data?.map((depot) => (
-                <Picker.Item key={depot.id} label={depot.name} value={depot.id} color="#000000" />
-              ))}
-            </Picker>
-          </View>
+          <PickerField
+            variant="filter"
+            label="Dépôt"
+            selectedValue={selectedDepotId || ''}
+            onValueChange={(value) => setSelectedDepotId(value || null)}
+            containerStyle={styles.filterPickerField}
+          >
+            <Picker.Item label="Tous" value="" />
+            {depots?.data?.map((depot) => (
+              <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
+            ))}
+          </PickerField>
         </View>
 
         <View style={styles.kpiGrid}>
@@ -714,14 +709,9 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.xs,
     opacity: 0.7,
   },
-  filterPicker: {
-    height: 36,
-    color: '#111827',
-  },
-  filterPickerItem: {
-    height: 36,
-    fontSize: 12,
-    color: '#111827',
+  filterPickerField: {
+    flex: 1,
+    marginBottom: 0,
   },
   kpiGrid: {
     marginBottom: Spacing.lg,

@@ -6,6 +6,7 @@ import { useUpdateOtherIncome } from '@/hooks/useFinance';
 import { otherIncomeService } from '@/services/finance.service';
 import type { CreateOtherIncomeRequest } from '@/types';
 import { Picker } from '@react-native-picker/picker';
+import { PickerField } from '@/components/ui/PickerField';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
@@ -17,13 +18,13 @@ export default function EditOtherIncomeScreen() {
   const router = useRouter();
   const { id: idParam } = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
-  const canEdit = useAuthContext().hasRole(['ADMIN']);
+  const canManage = useAuthContext().hasRole(['ADMIN', 'GERANT']);
 
   React.useEffect(() => {
-    if (!canEdit) {
+    if (!canManage) {
       router.replace('/finance/other-incomes');
     }
-  }, [canEdit, router]);
+  }, [canManage, router]);
   const updateMutation = useUpdateOtherIncome();
   const { data: depots } = useDepots();
 
@@ -99,10 +100,10 @@ export default function EditOtherIncomeScreen() {
     );
   }
 
-  if (!canEdit) {
+  if (!canManage) {
     return (
       <SafeAreaView style={styles.container}>
-        <ErrorMessage message="Accès réservé aux administrateurs." />
+        <ErrorMessage message="Accès réservé aux administrateurs et gérants." />
       </SafeAreaView>
     );
   }
@@ -115,22 +116,16 @@ export default function EditOtherIncomeScreen() {
               Modifier entrée hors ventes
             </Text>
 
-            <View style={styles.pickerWrapper}>
-              <Text variant="bodySmall" style={styles.pickerLabel}>
-                Dépôt *
-              </Text>
-              <Picker
-                selectedValue={formData.depotId}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, depotId: String(value) }))}
-                style={styles.picker}
-                itemStyle={styles.pickerItem}
-              >
-                <Picker.Item label="Sélectionner un dépôt" value="" />
-                {depots?.data?.map((depot) => (
-                  <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-                ))}
-              </Picker>
-            </View>
+            <PickerField
+              label="Dépôt *"
+              selectedValue={formData.depotId}
+              onValueChange={(value) => setFormData((prev) => ({ ...prev, depotId: String(value) }))}
+            >
+              <Picker.Item label="Sélectionner un dépôt" value="" />
+              {depots?.data?.map((depot) => (
+                <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
+              ))}
+            </PickerField>
             <TextInput
               label="Rubrique *"
               value={formData.category}
@@ -192,16 +187,5 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   title: { fontWeight: 'bold', marginBottom: Spacing.lg },
   input: { marginBottom: Spacing.md },
-  pickerWrapper: {
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderRadius: 10,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-    overflow: 'hidden',
-  },
-  pickerLabel: { marginLeft: Spacing.sm, marginTop: Spacing.xs, opacity: 0.7 },
-  picker: { height: 48, color: '#111827' },
-  pickerItem: { fontSize: 14, color: '#111827' },
   submitButton: { marginTop: Spacing.md },
 });

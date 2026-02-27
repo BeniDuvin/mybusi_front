@@ -15,6 +15,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { stockService } from '@/services/stock.service';
 import { Picker } from '@react-native-picker/picker';
+import { PickerField } from '@/components/ui/PickerField';
 import {
     Button,
     Card,
@@ -274,59 +275,47 @@ export default function ProductsListScreen() {
       <SearchBar placeholder="Rechercher un produit..." onSearch={setSearch} />
 
       <View style={styles.filtersRow}>
-        <View style={styles.filterItem}>
-          <Text variant="bodySmall" style={styles.filterLabel}>
-            Catégorie
-          </Text>
-          <Picker
-            selectedValue={categoryId}
-            onValueChange={(value) => setCategoryId(value)}
-            style={styles.filterPicker}
-            itemStyle={styles.filterPickerItem}
-          >
-            <Picker.Item label="Toutes" value="" />
-            {categories?.map((category) => (
-              <Picker.Item key={category.id} label={category.name} value={category.id} />
-            ))}
-          </Picker>
-        </View>
+        <PickerField
+          variant="filter"
+          label="Catégorie"
+          selectedValue={categoryId}
+          onValueChange={(value) => setCategoryId(value)}
+          containerStyle={styles.filterPickerField}
+        >
+          <Picker.Item label="Toutes" value="" />
+          {categories?.map((category) => (
+            <Picker.Item key={category.id} label={category.name} value={category.id} />
+          ))}
+        </PickerField>
 
-        <View style={styles.filterItem}>
-          <Text variant="bodySmall" style={styles.filterLabel}>
-            Dépôt
-          </Text>
-          <Picker
-            selectedValue={depotId || selectedDepotId || ''}
-            onValueChange={(value) => {
-              setDepotId(value);
-              setSelectedDepotId(value || null);
-            }}
-            style={styles.filterPicker}
-            itemStyle={styles.filterPickerItem}
-          >
-            <Picker.Item label="Tous" value="" />
-            {depots?.data?.map((depot) => (
-              <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-            ))}
-          </Picker>
-        </View>
+        <PickerField
+          variant="filter"
+          label="Dépôt"
+          selectedValue={depotId || selectedDepotId || ''}
+          onValueChange={(value) => {
+            setDepotId(value);
+            setSelectedDepotId(value || null);
+          }}
+          containerStyle={styles.filterPickerField}
+        >
+          <Picker.Item label="Tous" value="" />
+          {depots?.data?.map((depot) => (
+            <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
+          ))}
+        </PickerField>
 
-        <View style={styles.filterItem}>
-          <Text variant="bodySmall" style={styles.filterLabel}>
-            Fournisseur
-          </Text>
-          <Picker
-            selectedValue={supplierId}
-            onValueChange={(value) => setSupplierId(value)}
-            style={styles.filterPicker}
-            itemStyle={styles.filterPickerItem}
-          >
-            <Picker.Item label="Tous" value="" />
-            {suppliers?.data?.map((supplier) => (
-              <Picker.Item key={supplier.id} label={supplier.name} value={supplier.id} />
-            ))}
-          </Picker>
-        </View>
+        <PickerField
+          variant="filter"
+          label="Fournisseur"
+          selectedValue={supplierId}
+          onValueChange={(value) => setSupplierId(value)}
+          containerStyle={styles.filterPickerField}
+        >
+          <Picker.Item label="Tous" value="" />
+          {suppliers?.data?.map((supplier) => (
+            <Picker.Item key={supplier.id} label={supplier.name} value={supplier.id} />
+          ))}
+        </PickerField>
       </View>
 
       <FlatList
@@ -410,29 +399,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.sm,
   },
-  filterItem: {
+  filterPickerField: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#999',
-    borderRadius: 4,
-    height: 62,
-    justifyContent: 'center',
-  },
-  filterLabel: {
-    paddingHorizontal: Spacing.sm,
-    paddingTop: Spacing.xs,
-    opacity: 0.6,
-    fontSize: 11,
-  },
-  filterPicker: {
-    height: 34,
-    marginTop: -2,
-    color: '#111827',
-  },
-  filterPickerItem: {
-    height: 34,
-    fontSize: 12,
-    color: '#111827',
+    marginBottom: 0,
   },
   listContent: {
     padding: Spacing.md,

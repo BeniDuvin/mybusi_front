@@ -27,13 +27,13 @@ export default function EditPurchaseScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const isAdmin = useAuthContext().hasRole(['ADMIN']);
+  const canManage = useAuthContext().hasRole(['ADMIN', 'GERANT']);
 
   React.useEffect(() => {
-    if (!isAdmin) {
+    if (!canManage) {
       router.replace('/purchases');
     }
-  }, [isAdmin, router]);
+  }, [canManage, router]);
   const { data: purchase, isLoading } = usePurchase(id || '');
   const updateMutation = useUpdatePurchase();
 

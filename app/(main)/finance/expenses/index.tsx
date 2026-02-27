@@ -24,6 +24,7 @@ import type { Expense } from '@/types';
 import { useAuthContext } from '@/contexts/AuthContext';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
+import { PickerField } from '@/components/ui/PickerField';
 import { invoiceService } from '@/services/invoice.service';
 
 const PERIOD_TABS: Array<{ label: string; value: 'range' | 'month' | 'quarter' | 'year' }> = [
@@ -61,7 +62,7 @@ export default function ExpensesListScreen() {
   const { selectedDepotId, setSelectedDepotId } = useAppStore();
   const { hasRole } = useAuthContext();
   const canManage = hasRole(['ADMIN', 'GERANT']);
-  const canEdit = hasRole(['ADMIN']);
+  const isAdmin = hasRole(['ADMIN']);
   const { data: depots } = useDepots();
 
   const now = new Date();
@@ -204,7 +205,7 @@ export default function ExpensesListScreen() {
   const renderExpense = ({ item }: { item: Expense }) => (
     <Card
       style={styles.card}
-      onPress={() => canEdit && router.push(`/finance/expenses/edit/${item.id}`)}
+      onPress={() => canManage && router.push(`/finance/expenses/edit/${item.id}`)}
     >
       <Card.Content>
         <View style={styles.header}>
@@ -218,7 +219,7 @@ export default function ExpensesListScreen() {
               </Text>
             ) : null}
           </View>
-          {canEdit && (
+          {canManage && (
             <Menu
               visible={menuVisible === item.id}
               onDismiss={() => setMenuVisible(null)}
@@ -232,15 +233,17 @@ export default function ExpensesListScreen() {
                 title="Modifier"
                 leadingIcon="pencil"
               />
-              <Menu.Item
-                onPress={() => {
-                  setMenuVisible(null);
-                  setSelectedExpense(item);
-                  setDeleteDialogVisible(true);
-                }}
-                title="Supprimer"
-                leadingIcon="delete"
-              />
+              {isAdmin && (
+                <Menu.Item
+                  onPress={() => {
+                    setMenuVisible(null);
+                    setSelectedExpense(item);
+                    setDeleteDialogVisible(true);
+                  }}
+                  title="Supprimer"
+                  leadingIcon="delete"
+                />
+              )}
             </Menu>
           )}
         </View>
@@ -270,25 +273,21 @@ export default function ExpensesListScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.filtersRow}>
-        <View style={styles.filterItem}>
-          <Text variant="bodySmall" style={styles.filterLabel}>
-            Dépôt
-          </Text>
-          <Picker
-            selectedValue={selectedDepotId || ''}
-            onValueChange={(value) => {
-              setSelectedDepotId(value || null);
-              setPage(1);
-            }}
-            style={styles.filterPicker}
-            itemStyle={styles.filterPickerItem}
-          >
-            <Picker.Item label="Tous" value="" />
-            {depots?.data?.map((depot) => (
-              <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-            ))}
-          </Picker>
-        </View>
+        <PickerField
+          variant="filter"
+          label="Dépôt"
+          selectedValue={selectedDepotId || ''}
+          onValueChange={(value) => {
+            setSelectedDepotId(value || null);
+            setPage(1);
+          }}
+          containerStyle={styles.filterPickerField}
+        >
+          <Picker.Item label="Tous" value="" />
+          {depots?.data?.map((depot) => (
+            <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
+          ))}
+        </PickerField>
         <Button mode="contained" onPress={handlePrint} style={styles.printButton}>
           Imprimer
         </Button>
@@ -493,9 +492,9 @@ export default function ExpensesListScreen() {
             <EmptyState
               icon="tray"
               title="Aucune dépense"
-              message={canEdit ? 'Ajoutez votre première dépense' : 'Aucune dépense enregistrée'}
-              actionLabel={canEdit ? 'Nouvelle dépense' : undefined}
-              onAction={canEdit ? () => router.push('/finance/expenses/create') : undefined}
+              message={canManage ? 'Ajoutez votre première dépense' : 'Aucune dépense enregistrée'}
+              actionLabel={canManage ? 'Nouvelle dépense' : undefined}
+              onAction={canManage ? () => router.push('/finance/expenses/create') : undefined}
             />
           ) : null
         }
@@ -507,7 +506,7 @@ export default function ExpensesListScreen() {
         onEndReachedThreshold={0.5}
       />
 
-      {canEdit && (
+      {canManage && (
         <FAB
           icon="plus"
           label="Nouvelle dépense"
@@ -561,6 +560,10 @@ const styles = StyleSheet.create({
   filterLabel: {
     marginLeft: Spacing.xs,
     opacity: 0.7,
+  },
+  filterPickerField: {
+    flex: 1,
+    marginBottom: 0,
   },
   filterPicker: {
     height: 36,

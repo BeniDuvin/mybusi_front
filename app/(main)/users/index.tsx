@@ -25,6 +25,7 @@ import {
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
+import { PickerField } from '@/components/ui/PickerField';
 
 const ROLE_OPTIONS: Role[] = ['ADMIN', 'GERANT', 'CAISSIER', 'CLIENT'];
 
@@ -284,23 +285,17 @@ export default function UsersListScreen() {
               placeholder="+242 XX XXX XX XX"
               style={styles.input}
             />
-            <View style={styles.pickerContainer}>
-              <Text variant="bodySmall" style={styles.pickerLabel}>
-                Rôle *
-              </Text>
-              <Picker
-                selectedValue={form.role}
-                onValueChange={(value) =>
-                  setForm((prev) => ({ ...prev, role: value as Role }))
-                }
-                style={styles.picker}
-                itemStyle={styles.pickerItem}
-              >
-                {ROLE_OPTIONS.map((role) => (
-                  <Picker.Item key={role} label={ROLE_LABELS[role]} value={role} />
-                ))}
-              </Picker>
-            </View>
+            <PickerField
+              label="Rôle *"
+              selectedValue={form.role}
+              onValueChange={(value) =>
+                setForm((prev) => ({ ...prev, role: value as Role }))
+              }
+            >
+              {ROLE_OPTIONS.map((role) => (
+                <Picker.Item key={role} label={ROLE_LABELS[role]} value={role} />
+              ))}
+            </PickerField>
             <TextInput
               label="Mot de passe *"
               value={form.password}
@@ -389,28 +384,6 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: Spacing.sm,
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderRadius: 10,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: Spacing.xs,
-    paddingTop: Spacing.xs,
-    marginBottom: Spacing.sm,
-  },
-  pickerLabel: {
-    marginLeft: Spacing.xs,
-    opacity: 0.7,
-  },
-  picker: {
-    height: 36,
-    color: '#111827',
-  },
-  pickerItem: {
-    height: 36,
-    fontSize: 12,
-    color: '#111827',
   },
   switchRow: {
     marginTop: Spacing.xs,

@@ -14,6 +14,7 @@ import { FlatList, Platform, RefreshControl, StyleSheet, View } from 'react-nati
 import { Button, Card, Text, TextInput, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
+import { PickerField } from '@/components/ui/PickerField';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 const METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -360,22 +361,18 @@ export default function PaymentsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.filtersRow}>
-        <View style={styles.filterItem}>
-          <Text variant="bodySmall" style={styles.filterLabel}>
-            Dépôt
-          </Text>
-          <Picker
-            selectedValue={selectedDepotId || ''}
-            onValueChange={(value) => setSelectedDepotId(value || null)}
-            style={styles.filterPicker}
-            itemStyle={styles.filterPickerItem}
-          >
-            <Picker.Item label="Tous" value="" />
-            {depots?.data?.map((depot) => (
-              <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-            ))}
-          </Picker>
-        </View>
+        <PickerField
+          variant="filter"
+          label="Dépôt"
+          selectedValue={selectedDepotId || ''}
+          onValueChange={(value) => setSelectedDepotId(value || null)}
+          containerStyle={styles.filterPickerField}
+        >
+          <Picker.Item label="Tous" value="" />
+          {depots?.data?.map((depot) => (
+            <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
+          ))}
+        </PickerField>
         <Button
           mode="contained"
           onPress={async () => {
@@ -699,6 +696,10 @@ const styles = StyleSheet.create({
   filterLabel: {
     marginLeft: Spacing.xs,
     opacity: 0.7,
+  },
+  filterPickerField: {
+    flex: 1,
+    marginBottom: 0,
   },
   filterPicker: {
     height: 36,

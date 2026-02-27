@@ -84,6 +84,36 @@ export const BorderRadius = {
   round: 999,
 };
 
+// Picker/Combo styles (style "Nouvel achat" - unifié projet)
+export const PickerStyles = {
+  container: {
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#999',
+    borderRadius: 4,
+  } as const,
+  label: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    opacity: 0.6,
+  } as const,
+  picker: {
+    color: '#111827',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+  } as const,
+  pickerItem: {
+    fontSize: 14,
+    color: '#111827',
+  } as const,
+  // Variante compacte pour barres de filtres
+  filter: {
+    container: { marginBottom: 0 } as const,
+    picker: { height: 48, color: '#111827', backgroundColor: '#F8FAFC' } as const,
+    pickerItem: { fontSize: 14, color: '#111827' } as const,
+  } as const,
+};
+
 // Shadows
 export const Shadows = {
   small: {
