@@ -2,6 +2,7 @@ import { Spacing } from '@/constants/theme';
 import { useCreateSalary } from '@/hooks/useFinance';
 import { useUsers } from '@/hooks/useUsers';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import type { CreateSalaryRequest } from '@/types';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -30,9 +31,8 @@ export default function CreateSalaryScreen() {
   const theme = useTheme();
   const router = useRouter();
   const createMutation = useCreateSalary();
-  const { user, hasRole } = useAuthContext();
-  const isAdmin = hasRole(['ADMIN']);
-  const canManage = hasRole(['ADMIN', 'GERANT']);
+  const { user } = useAuthContext();
+  const { canManageStore: canManage, isOwner: isAdmin } = useStoreAccess();
   const { data: usersData } = useUsers(
     { page: 1, limit: 200, isActive: true },
     { enabled: isAdmin }

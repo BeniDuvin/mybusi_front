@@ -1,7 +1,6 @@
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { Spacing } from '@/constants/theme';
-import { useAuthContext } from '@/contexts/AuthContext';
-import { useDepots } from '@/hooks/useDepots';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import { useBrands, useCategories, useProduct, useUpdateProduct } from '@/hooks/useProducts';
 import type { CreateProductRequest } from '@/types';
 import { Picker } from '@react-native-picker/picker';
@@ -27,13 +26,11 @@ export default function EditProductScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { hasRole } = useAuthContext();
-  const canEdit = hasRole(['ADMIN', 'GERANT']);
+  const { canManageStore: canEdit } = useStoreAccess();
 
   const { data: product, isLoading: isProductLoading } = useProduct(id || '');
   const { data: categories } = useCategories();
   const { data: brands } = useBrands();
-  const { data: depots } = useDepots();
   const updateMutation = useUpdateProduct();
 
   const [formData, setFormData] = useState<CreateProductRequest>({
@@ -55,20 +52,11 @@ export default function EditProductScreen() {
   const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
   const getAssetSizeBytes = (asset: ImagePicker.ImagePickerAsset) => {
-    if (typeof asset.fileSize === 'number') return asset.fileSize;
-    if (!asset.base64) return 0;
-    return Math.floor((asset.base64.length * 3) / 4);
-  };
-
-  const getImageMediaTypes = () => {
-    const picker = ImagePicker as unknown as {
-      MediaType?: { Images?: string; Image?: string };
-      MediaTypeOptions?: { Images?: string };
-    };
-    if (picker.MediaType?.Images) return [picker.MediaType.Images];
-    if (picker.MediaType?.Image) return [picker.MediaType.Image];
-    if (picker.MediaTypeOptions?.Images) return picker.MediaTypeOptions.Images;
-    return undefined;
+    if (asset.base64) {
+      const padding = asset.base64.endsWith('==') ? 2 : asset.base64.endsWith('=') ? 1 : 0;
+      return Math.floor((asset.base64.length * 3) / 4) - padding;
+    }
+    return asset.fileSize ?? 0;
   };
 
   const buildImageDataUrl = (asset: ImagePicker.ImagePickerAsset) => {
@@ -93,25 +81,30 @@ export default function EditProductScreen() {
     });
   }, [product]);
 
-  const handlePickFromGallery = async () => {
+  // Keeps gallery and camera images under the upload cap before they enter the product payload.
+  const pickProductImage = async (source: 'gallery' | 'camera') => {
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission = source === 'gallery'
+        ? await ImagePicker.requestMediaLibraryPermissionsAsync()
+        : await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        setError("Permission galerie refusée");
+        setError(source === 'gallery' ? 'Permission galerie refusée' : 'Permission caméra refusée');
         return;
       }
 
-      const mediaTypes = getImageMediaTypes();
-      const result = await ImagePicker.launchImageLibraryAsync({
-        ...(mediaTypes ? { mediaTypes } : {}),
+      const options: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ['images'],
         quality: 0.8,
         base64: true,
-      });
+      };
+      const result = source === 'gallery'
+        ? await ImagePicker.launchImageLibraryAsync(options)
+        : await ImagePicker.launchCameraAsync(options);
 
       if (result.canceled) return;
       const asset = result.assets?.[0];
       if (!asset) {
-        setError("Impossible de récupérer l'image sélectionnée");
+        setError(source === 'gallery' ? "Impossible de récupérer l'image sélectionnée" : 'Impossible de récupérer la photo');
         return;
       }
       const sizeBytes = getAssetSizeBytes(asset);
@@ -121,51 +114,12 @@ export default function EditProductScreen() {
       }
       const dataUrl = buildImageDataUrl(asset);
       if (!dataUrl) {
-        setError("Impossible de convertir l'image sélectionnée");
+        setError(source === 'gallery' ? "Impossible de convertir l'image sélectionnée" : 'Impossible de convertir la photo');
         return;
       }
       setFormData((prev) => ({ ...prev, imageUrl: dataUrl }));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '';
-      setError(message ? `Erreur lors de la sélection: ${message}` : "Erreur lors de la sélection de l'image");
-    }
-  };
-
-  const handlePickFromCamera = async () => {
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) {
-        setError("Permission caméra refusée");
-        return;
-      }
-
-      const mediaTypes = getImageMediaTypes();
-      const result = await ImagePicker.launchCameraAsync({
-        ...(mediaTypes ? { mediaTypes } : {}),
-        quality: 0.8,
-        base64: true,
-      });
-
-      if (result.canceled) return;
-      const asset = result.assets?.[0];
-      if (!asset) {
-        setError("Impossible de récupérer la photo");
-        return;
-      }
-      const sizeBytes = getAssetSizeBytes(asset);
-      if (sizeBytes > MAX_IMAGE_BYTES) {
-        setError("Image trop lourde (max 5 Mo)");
-        return;
-      }
-      const dataUrl = buildImageDataUrl(asset);
-      if (!dataUrl) {
-        setError("Impossible de convertir la photo");
-        return;
-      }
-      setFormData((prev) => ({ ...prev, imageUrl: dataUrl }));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '';
-      setError(message ? `Erreur lors de la prise: ${message}` : "Erreur lors de la prise de photo");
+    } catch {
+      setError(source === 'gallery' ? "Erreur lors de la sélection de l'image" : 'Erreur lors de la prise de photo');
     }
   };
 
@@ -360,10 +314,10 @@ export default function EditProductScreen() {
               </View>
             ) : null}
             <View style={styles.imageActions}>
-              <Button mode="outlined" onPress={handlePickFromGallery} icon="image">
+            <Button mode="outlined" onPress={() => pickProductImage('gallery')} icon="image">
                 Galerie
               </Button>
-              <Button mode="outlined" onPress={handlePickFromCamera} icon="camera">
+            <Button mode="outlined" onPress={() => pickProductImage('camera')} icon="camera">
                 Caméra
               </Button>
             </View>

@@ -1,7 +1,5 @@
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Spacing } from '@/constants/theme';
-import { useAuthContext } from '@/contexts/AuthContext';
-import { useDepots } from '@/hooks/useDepots';
 import { useProducts } from '@/hooks/useProducts';
 import { useCreatePayment, useCreateSale } from '@/hooks/useSales';
 import { useAppStore } from '@/stores/app.store';
@@ -16,6 +14,8 @@ import {
 import { formatCurrency } from '@/utils/format';
 import { Picker } from '@react-native-picker/picker';
 import { PickerField } from '@/components/ui/PickerField';
+import { StoreContextText } from '@/components/StoreContextText';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Image, StyleSheet, View } from 'react-native';
@@ -37,8 +37,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function CreateSaleScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { selectedDepotId, setSelectedDepotId } = useAppStore();
-  const canManage = useAuthContext().hasRole(['ADMIN', 'GERANT']);
+  const { selectedDepotId } = useAppStore();
+  const { canSell: canManage } = useStoreAccess();
 
   React.useEffect(() => {
     if (!canManage) {
@@ -78,7 +78,6 @@ export default function CreateSaleScreen() {
     return items.find((item) => item.product.id === productId)?.quantity ?? 0;
   };
 
-  const { data: depots } = useDepots();
   const { data: products } = useProducts(
     {
       search,
@@ -387,16 +386,7 @@ export default function CreateSaleScreen() {
                 <Text variant="titleSmall" style={styles.sectionTitle}>
                   Dépôt
                 </Text>
-                <PickerField
-                  label="Dépôt *"
-                  selectedValue={selectedDepotId || ''}
-                  onValueChange={(value) => setSelectedDepotId(value || null)}
-                >
-                  <Picker.Item label="Sélectionner un dépôt" value="" />
-                  {depots?.data?.map((depot) => (
-                    <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-                  ))}
-                </PickerField>
+                <StoreContextText style={styles.sectionTitle} />
 
                 <SearchBar placeholder="Rechercher un produit..." onSearch={setSearch} />
 

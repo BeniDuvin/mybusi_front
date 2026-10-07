@@ -1,6 +1,6 @@
 import { Spacing } from '@/constants/theme';
 import { useUpdateExpense } from '@/hooks/useFinance';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { expenseService } from '@/services/finance.service';
 import type { CreateExpenseRequest } from '@/types';
@@ -16,7 +16,7 @@ export default function EditExpenseScreen() {
   const { id: idParam } = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const updateMutation = useUpdateExpense();
-  const canManage = useAuthContext().hasRole(['ADMIN', 'GERANT']);
+  const { canManageStore: canManage } = useStoreAccess();
 
   useEffect(() => {
     if (!canManage) {

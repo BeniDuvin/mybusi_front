@@ -35,6 +35,13 @@ function RootLayoutNav() {
 
     if (isSplash) return;
 
+    if (user?.mustChangePassword) {
+      if (pathname !== '/force-change-password') {
+        router.replace('/(main)/force-change-password');
+      }
+      return;
+    }
+
     if (!user && !inAuthGroup) {
       // Redirect to login if not authenticated
       router.replace('/login');

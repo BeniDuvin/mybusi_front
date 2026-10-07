@@ -2,6 +2,7 @@ import { Spacing } from '@/constants/theme';
 import { useUpdateSalary } from '@/hooks/useFinance';
 import { useUsers } from '@/hooks/useUsers';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { salaryService } from '@/services/finance.service';
 import type { CreateSalaryRequest } from '@/types';
@@ -34,9 +35,8 @@ export default function EditSalaryScreen() {
   const { id: idParam } = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const updateMutation = useUpdateSalary();
-  const { user, hasRole } = useAuthContext();
-  const isAdmin = hasRole(['ADMIN']);
-  const canManage = hasRole(['ADMIN', 'GERANT']);
+  const { user } = useAuthContext();
+  const { canManageStore: canManage, isOwner: isAdmin } = useStoreAccess();
   const { data: usersData } = useUsers(
     { page: 1, limit: 200, isActive: true },
     { enabled: isAdmin }

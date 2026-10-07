@@ -1,6 +1,7 @@
 import { Spacing } from '@/constants/theme';
-import { useDepots } from '@/hooks/useDepots';
 import { useBrands, useCategories, useCreateProduct } from '@/hooks/useProducts';
+import { useAppStore } from '@/stores/app.store';
+import { StoreContextText } from '@/components/StoreContextText';
 import type { CreateProductRequest } from '@/types';
 import { Picker } from '@react-native-picker/picker';
 import { PickerField } from '@/components/ui/PickerField';
@@ -23,7 +24,7 @@ export default function CreateProductScreen() {
 
   const { data: categories } = useCategories();
   const { data: brands } = useBrands();
-  const { data: depots } = useDepots();
+  const selectedDepotId = useAppStore((state) => state.selectedDepotId);
   const createMutation = useCreateProduct();
 
   const [formData, setFormData] = useState<CreateProductRequest>({
@@ -41,6 +42,12 @@ export default function CreateProductScreen() {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    if (selectedDepotId) {
+      setFormData((previous) => ({ ...previous, depotId: selectedDepotId }));
+    }
+  }, [selectedDepotId]);
 
   const generateSku = (name: string) => {
     const base = name
@@ -61,20 +68,11 @@ export default function CreateProductScreen() {
   const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
   const getAssetSizeBytes = (asset: ImagePicker.ImagePickerAsset) => {
-    if (typeof asset.fileSize === 'number') return asset.fileSize;
-    if (!asset.base64) return 0;
-    return Math.floor((asset.base64.length * 3) / 4);
-  };
-
-  const getImageMediaTypes = () => {
-    const picker = ImagePicker as unknown as {
-      MediaType?: { Images?: string; Image?: string };
-      MediaTypeOptions?: { Images?: string };
-    };
-    if (picker.MediaType?.Images) return [picker.MediaType.Images];
-    if (picker.MediaType?.Image) return [picker.MediaType.Image];
-    if (picker.MediaTypeOptions?.Images) return picker.MediaTypeOptions.Images;
-    return undefined;
+    if (asset.base64) {
+      const padding = asset.base64.endsWith('==') ? 2 : asset.base64.endsWith('=') ? 1 : 0;
+      return Math.floor((asset.base64.length * 3) / 4) - padding;
+    }
+    return asset.fileSize ?? 0;
   };
 
   const buildImageDataUrl = (asset: ImagePicker.ImagePickerAsset) => {
@@ -92,25 +90,30 @@ export default function CreateProductScreen() {
     }
   }, [formData.name]);
 
-  const handlePickFromGallery = async () => {
+  // Keeps gallery and camera images under the upload cap before they enter the product payload.
+  const pickProductImage = async (source: 'gallery' | 'camera') => {
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission = source === 'gallery'
+        ? await ImagePicker.requestMediaLibraryPermissionsAsync()
+        : await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        setError("Permission galerie refusée");
+        setError(source === 'gallery' ? 'Permission galerie refusée' : 'Permission caméra refusée');
         return;
       }
 
-      const mediaTypes = getImageMediaTypes();
-      const result = await ImagePicker.launchImageLibraryAsync({
-        ...(mediaTypes ? { mediaTypes } : {}),
+      const options: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ['images'],
         quality: 0.8,
         base64: true,
-      });
+      };
+      const result = source === 'gallery'
+        ? await ImagePicker.launchImageLibraryAsync(options)
+        : await ImagePicker.launchCameraAsync(options);
 
       if (result.canceled) return;
       const asset = result.assets?.[0];
       if (!asset) {
-        setError("Impossible de récupérer l'image sélectionnée");
+        setError(source === 'gallery' ? "Impossible de récupérer l'image sélectionnée" : 'Impossible de récupérer la photo');
         return;
       }
       const sizeBytes = getAssetSizeBytes(asset);
@@ -120,51 +123,12 @@ export default function CreateProductScreen() {
       }
       const dataUrl = buildImageDataUrl(asset);
       if (!dataUrl) {
-        setError("Impossible de convertir l'image sélectionnée");
+        setError(source === 'gallery' ? "Impossible de convertir l'image sélectionnée" : 'Impossible de convertir la photo');
         return;
       }
       setFormData((prev) => ({ ...prev, imageUrl: dataUrl }));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '';
-      setError(message ? `Erreur lors de la sélection: ${message}` : "Erreur lors de la sélection de l'image");
-    }
-  };
-
-  const handlePickFromCamera = async () => {
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) {
-        setError("Permission caméra refusée");
-        return;
-      }
-
-      const mediaTypes = getImageMediaTypes();
-      const result = await ImagePicker.launchCameraAsync({
-        ...(mediaTypes ? { mediaTypes } : {}),
-        quality: 0.8,
-        base64: true,
-      });
-
-      if (result.canceled) return;
-      const asset = result.assets?.[0];
-      if (!asset) {
-        setError("Impossible de récupérer la photo");
-        return;
-      }
-      const sizeBytes = getAssetSizeBytes(asset);
-      if (sizeBytes > MAX_IMAGE_BYTES) {
-        setError("Image trop lourde (max 5 Mo)");
-        return;
-      }
-      const dataUrl = buildImageDataUrl(asset);
-      if (!dataUrl) {
-        setError("Impossible de convertir la photo");
-        return;
-      }
-      setFormData((prev) => ({ ...prev, imageUrl: dataUrl }));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '';
-      setError(message ? `Erreur lors de la prise: ${message}` : "Erreur lors de la prise de photo");
+    } catch {
+      setError(source === 'gallery' ? "Erreur lors de la sélection de l'image" : 'Erreur lors de la prise de photo');
     }
   };
 
@@ -248,10 +212,10 @@ export default function CreateProductScreen() {
               </View>
             ) : null}
             <View style={styles.imageActions}>
-            <Button mode="outlined" onPress={handlePickFromGallery} icon="image">
+            <Button mode="outlined" onPress={() => pickProductImage('gallery')} icon="image">
               Galerie
             </Button>
-            <Button mode="outlined" onPress={handlePickFromCamera} icon="camera">
+            <Button mode="outlined" onPress={() => pickProductImage('camera')} icon="camera">
               Caméra
             </Button>
             </View>
@@ -288,16 +252,7 @@ export default function CreateProductScreen() {
             ))}
           </PickerField>
 
-          <PickerField
-            label="Dépôt *"
-            selectedValue={formData.depotId}
-            onValueChange={(value) => setFormData({ ...formData, depotId: value })}
-          >
-            <Picker.Item label="Sélectionner un dépôt" value="" />
-            {depots?.data?.map((depot) => (
-              <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-            ))}
-          </PickerField>
+          <StoreContextText style={styles.input} />
 
           <TextInput
             label="Prix d'achat *"

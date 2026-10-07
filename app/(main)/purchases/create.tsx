@@ -1,6 +1,4 @@
 import { Spacing } from '@/constants/theme';
-import { useAuthContext } from '@/contexts/AuthContext';
-import { useDepots } from '@/hooks/useDepots';
 import { useProducts } from '@/hooks/useProducts';
 import { useCreatePurchase, usePayPurchase, useSuppliers } from '@/hooks/usePurchases';
 import { useAppStore } from '@/stores/app.store';
@@ -8,6 +6,8 @@ import type { CreatePurchaseRequest } from '@/types';
 import { formatCurrency } from '@/utils/format';
 import { Picker } from '@react-native-picker/picker';
 import { PickerField } from '@/components/ui/PickerField';
+import { StoreContextText } from '@/components/StoreContextText';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
@@ -41,8 +41,8 @@ export default function CreatePurchaseScreen() {
   const router = useRouter();
   const createMutation = useCreatePurchase();
   const payMutation = usePayPurchase();
-  const { selectedDepotId, setSelectedDepotId } = useAppStore();
-  const canManage = useAuthContext().hasRole(['ADMIN', 'GERANT']);
+  const { selectedDepotId } = useAppStore();
+  const { canManageStore: canManage } = useStoreAccess();
 
   React.useEffect(() => {
     if (!canManage) {
@@ -72,7 +72,6 @@ export default function CreatePurchaseScreen() {
     { limit: 100, depotId: depotId || undefined },
     { refetchInterval: 15000, refetchOnWindowFocus: true }
   );
-  const { data: depots } = useDepots();
 
   const getStock = (productId: string) => {
     const product = products?.data?.find((p) => p.id === productId);
@@ -97,7 +96,7 @@ export default function CreatePurchaseScreen() {
   );
 
   React.useEffect(() => {
-    if (!depotId && selectedDepotId) {
+    if (selectedDepotId && depotId !== selectedDepotId) {
       setDepotId(selectedDepotId);
     }
   }, [selectedDepotId, depotId]);
@@ -235,19 +234,7 @@ export default function CreatePurchaseScreen() {
             Nouvel achat
           </Text>
 
-          <PickerField
-            label="Dépôt *"
-            selectedValue={depotId}
-            onValueChange={(value) => {
-              setDepotId(value);
-              setSelectedDepotId(value || null);
-            }}
-          >
-            <Picker.Item label="Sélectionner un dépôt" value="" />
-            {depots?.data?.map((depot) => (
-              <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-            ))}
-          </PickerField>
+          <StoreContextText style={styles.title} />
 
           <PickerField
             label="Fournisseur *"

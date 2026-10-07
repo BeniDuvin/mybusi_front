@@ -1,8 +1,8 @@
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { KPICard } from '@/components/ui/KPICard';
 import { BorderRadius, Shadows, Spacing } from '@/constants/theme';
-import { useAuthContext } from '@/contexts/AuthContext';
 import { useDepots } from '@/hooks/useDepots';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import { useExpenses, useFinanceDashboard, useFinanceSummary, useOtherIncomes } from '@/hooks/useFinance';
 import { useLowStockProducts, useProducts } from '@/hooks/useProducts';
 import { usePurchases } from '@/hooks/usePurchases';
@@ -14,10 +14,10 @@ import { formatCurrency } from '@/utils/format';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { PickerField } from '@/components/ui/PickerField';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Dimensions, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Card, FAB, SegmentedButtons, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,8 +26,22 @@ export default function DashboardScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { selectedDepotId, setSelectedDepotId } = useAppStore();
-  const { hasRole } = useAuthContext();
-  const canViewFinance = hasRole(['ADMIN', 'GERANT']);
+  const { data: depots } = useDepots();
+  const { canManageStore, subscription, isSubscriptionWritable, daysRemaining } = useStoreAccess();
+
+  // Route les nouveaux comptes vers la création de leur premier espace de travail.
+  useEffect(() => {
+    const stores = depots?.data;
+    if (!stores) return;
+    if (stores.length === 0) {
+      router.replace('/(main)/onboarding-store' as never);
+      return;
+    }
+    if (!selectedDepotId || !stores.some((store) => store.id === selectedDepotId)) {
+      setSelectedDepotId(stores[0].id);
+    }
+  }, [depots?.data, selectedDepotId, setSelectedDepotId, router]);
+  const canViewFinance = canManageStore;
   const [statsTab, setStatsTab] = useState<'sales' | 'purchases'>('sales');
 
   const toNumber = (value: unknown) => {
@@ -144,7 +158,9 @@ export default function DashboardScreen() {
     limit: 1000,
   });
 
-  const { data: depots } = useDepots();
+
+
+
 
   const { data: stockData, refetch: refetchStock } = useQuery({
     queryKey: ['stock', 'depot', selectedDepotId],
@@ -428,23 +444,32 @@ export default function DashboardScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <Text variant="titleLarge" style={styles.sectionTitle}>
-          Vue d'ensemble
+          Vue d’ensemble
         </Text>
 
         <View style={styles.filtersRow}>
           <PickerField
             variant="filter"
-            label="Dépôt"
+            label="Boutique active"
             selectedValue={selectedDepotId || ''}
-            onValueChange={(value) => setSelectedDepotId(value || null)}
+            onValueChange={(value) => setSelectedDepotId(value)}
             containerStyle={styles.filterPickerField}
           >
-            <Picker.Item label="Tous" value="" />
             {depots?.data?.map((depot) => (
               <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
             ))}
           </PickerField>
         </View>
+
+        {subscription && (!isSubscriptionWritable || daysRemaining <= 7) && (
+          <Card style={{ marginBottom: Spacing.md, borderColor: isSubscriptionWritable ? theme.colors.outline : theme.colors.error, borderWidth: 1 }}>
+            <Card.Content>
+              <Text variant="titleMedium">{isSubscriptionWritable ? `Essai ou période en cours · ${daysRemaining} jour(s)` : 'Boutique en lecture seule'}</Text>
+              <Text>{isSubscriptionWritable ? 'Consultez la date de fin de votre période.' : 'L’abonnement doit être actif pour reprendre les opérations de gestion.'}</Text>
+              <Text onPress={() => router.push('/subscription')}>Voir l’abonnement</Text>
+            </Card.Content>
+          </Card>
+        )}
 
         <View style={styles.kpiGrid}>
           <View style={styles.kpiRow}>

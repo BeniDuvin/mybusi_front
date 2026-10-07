@@ -1,31 +1,28 @@
 import { Spacing } from '@/constants/theme';
 import { useCreateExpense } from '@/hooks/useFinance';
-import { useDepots } from '@/hooks/useDepots';
 import { useAppStore } from '@/stores/app.store';
 import type { CreateExpenseRequest } from '@/types';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 import { Button, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
-import { Picker } from '@react-native-picker/picker';
-import { PickerField } from '@/components/ui/PickerField';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
+import { StoreContextText } from '@/components/StoreContextText';
 
 export default function CreateExpenseScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { selectedDepotId } = useAppStore();
   const createMutation = useCreateExpense();
-  const canManage = useAuthContext().hasRole(['ADMIN', 'GERANT']);
+  const { canManageStore: canManage } = useStoreAccess();
 
   React.useEffect(() => {
     if (!canManage) {
       router.replace('/finance/expenses');
     }
   }, [canManage, router]);
-  const { data: depots } = useDepots();
 
   const [formData, setFormData] = useState<CreateExpenseRequest>({
     depotId: selectedDepotId || '',
@@ -38,13 +35,10 @@ export default function CreateExpenseScreen() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    if (!formData.depotId && selectedDepotId) {
+    if (selectedDepotId && formData.depotId !== selectedDepotId) {
       setFormData((prev) => ({ ...prev, depotId: selectedDepotId }));
     }
-    if (!formData.depotId && depots?.data?.length && !selectedDepotId) {
-      setFormData((prev) => ({ ...prev, depotId: depots.data[0].id }));
-    }
-  }, [selectedDepotId, depots?.data]);
+  }, [selectedDepotId, formData.depotId]);
 
   const handleSubmit = async () => {
     if (!formData.depotId || !formData.category || formData.amount <= 0) {
@@ -96,16 +90,7 @@ export default function CreateExpenseScreen() {
               Nouvelle dépense
             </Text>
 
-            <PickerField
-              label="Dépôt *"
-              selectedValue={formData.depotId}
-              onValueChange={(value) => setFormData({ ...formData, depotId: value || '' })}
-            >
-              <Picker.Item label="Sélectionner un dépôt" value="" />
-              {depots?.data?.map((depot) => (
-                <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-              ))}
-            </PickerField>
+            <StoreContextText style={styles.input} />
 
           <TextInput
             label="Catégorie *"

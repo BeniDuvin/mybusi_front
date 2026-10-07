@@ -3,15 +3,13 @@ import { StyleSheet, View, ScrollView, KeyboardAvoidingView, Platform } from 're
 import { Button, Text, TextInput, useTheme, Snackbar } from 'react-native-paper';
 import { Link, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuthContext } from '@/contexts/AuthContext';
 import { authService } from '@/services/auth.service';
 import { BorderRadius, Shadows, Spacing } from '@/constants/theme';
-import { isValidEmail, isValidPassword, isValidPhone } from '@/utils/validation';
+import { isValidEmail, isStrongPassword, isValidPhone } from '@/utils/validation';
 
 export default function RegisterScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { signIn } = useAuthContext();
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -48,8 +46,8 @@ export default function RegisterScreen() {
       return;
     }
 
-    if (!isValidPassword(formData.password)) {
-      setError('Le mot de passe doit contenir au moins 6 caractères');
+    if (!isStrongPassword(formData.password)) {
+      setError('Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre');
       return;
     }
 
@@ -68,12 +66,12 @@ export default function RegisterScreen() {
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
+        confirmPassword: formData.confirmPassword,
         role: 'CLIENT',
       });
-      await signIn(response.accessToken, response.refreshToken, response.user);
-      router.replace('/(main)/dashboard');
+      router.push({ pathname: '/email-verification', params: { email: formData.email.trim().toLowerCase() } } as never);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Échec de l'inscription");
+      setError(err.response?.status === 409 ? "Compte existant. Connectez-vous ou utilisez une autre adresse." : "Inscription impossible. Vérifiez vos informations et réessayez.");
     } finally {
       setLoading(false);
     }
@@ -91,7 +89,7 @@ export default function RegisterScreen() {
               Créer un compte
             </Text>
             <Text variant="bodyMedium" style={styles.subtitle}>
-              Rejoignez MyDepot aujourd'hui
+              Rejoignez MyBusi aujourd'hui
             </Text>
           </View>
 

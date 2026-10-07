@@ -3,6 +3,7 @@ import axios, { AxiosError } from 'axios';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { useAppStore } from '@/stores/app.store';
 
 const fallbackBaseUrl =
   Platform.OS === 'android' && !Constants.isDevice
@@ -42,18 +43,33 @@ export const api = axios.create({
   },
 });
 
-// Request interceptor to add token
+async function clearStoredAuthentication() {
+  await Promise.all([
+    SecureStore.deleteItemAsync('accessToken'),
+    SecureStore.deleteItemAsync('refreshToken'),
+    SecureStore.deleteItemAsync('userId'),
+    SecureStore.deleteItemAsync('user'),
+  ]);
+  delete api.defaults.headers.common.Authorization;
+  await useAppStore.getState().setSelectedDepotId(null);
+}
+
+// Request interceptor attaches authentication and the active tenant context.
 api.interceptors.request.use(
   async (config) => {
     const token = await SecureStore.getItemAsync('accessToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const depotId = useAppStore.getState().selectedDepotId ?? await SecureStore.getItemAsync('selectedDepotId');
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+    const scoped = /^\/(products|stock|sales|payments|purchases|clients|suppliers|finance|expenses|other-incomes|salaries|invoices|logs)(\/|$)/.test(config.url || '');
+    if (depotId && scoped && config.method?.toLowerCase() === 'get') {
+      config.params = { ...config.params, depotId: config.params?.depotId || depotId };
+    }
+    if (depotId && ['/clients', '/suppliers', '/salaries'].includes(config.url || '') && config.data && typeof config.data === 'object') {
+      config.data = { ...config.data, depotId: config.data.depotId || depotId };
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Response interceptor to handle errors
@@ -63,32 +79,37 @@ api.interceptors.response.use(
     const originalRequest = error.config as any;
 
     // Handle 401 errors (token expired)
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
+      let refreshedTokens: { accessToken: string; refreshToken?: string };
 
       try {
         const refreshToken = await SecureStore.getItemAsync('refreshToken');
         const userId = await SecureStore.getItemAsync('userId');
 
-        if (refreshToken && userId) {
-          const response = await axios.post(
-            `${api.defaults.baseURL}/auth/refresh`,
-            { refreshToken, userId }
-          );
-
-          const { accessToken } = response.data;
-          await SecureStore.setItemAsync('accessToken', accessToken);
-
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          return api(originalRequest);
+        if (!refreshToken || !userId) {
+          throw new Error('Missing refresh credentials');
         }
-      } catch (refreshError) {
-        // Refresh failed, clear tokens
-        await SecureStore.deleteItemAsync('accessToken');
-        await SecureStore.deleteItemAsync('refreshToken');
-        await SecureStore.deleteItemAsync('userId');
-        return Promise.reject(refreshError);
+
+        const response = await axios.post(
+          `${api.defaults.baseURL}/auth/refresh`,
+          { refreshToken, userId }
+        );
+        refreshedTokens = response.data;
+      } catch {
+        await clearStoredAuthentication();
+        // Keep the original 401 so callers can handle an expired session consistently.
+        return Promise.reject(error);
       }
+
+      await SecureStore.setItemAsync('accessToken', refreshedTokens.accessToken);
+      // The backend rotates refresh tokens, so persist the replacement with every refresh.
+      if (refreshedTokens.refreshToken) {
+        await SecureStore.setItemAsync('refreshToken', refreshedTokens.refreshToken);
+      }
+
+      originalRequest.headers.Authorization = `Bearer ${refreshedTokens.accessToken}`;
+      return api(originalRequest);
     }
 
     return Promise.reject(error);

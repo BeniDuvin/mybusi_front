@@ -84,7 +84,7 @@ export default function OTPVerificationScreen() {
       const normalized = normalizePhone(phone);
       const response = await authService.verifyOTP({ phone: normalized, otpCode });
       await signIn(response.accessToken, response.refreshToken, response.user);
-      router.replace('/(main)/dashboard');
+      router.replace(response.user.mustChangePassword ? '/(main)/force-change-password' : '/(main)/dashboard');
     } catch (err: any) {
       if (__DEV__) {
         console.warn('[OTP] verify error:', err?.response?.data || err?.message);

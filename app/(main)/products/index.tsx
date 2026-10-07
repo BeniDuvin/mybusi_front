@@ -11,7 +11,7 @@ import { formatCurrency } from '@/utils/format';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { stockService } from '@/services/stock.service';
 import { Picker } from '@react-native-picker/picker';
@@ -68,14 +68,8 @@ export default function ProductsListScreen() {
   const deleteMutation = useDeleteProduct();
 
   React.useEffect(() => {
-    if (!selectedDepotId && !depotId) {
-      const firstDepotId = data?.data?.find((product) => product.depotId)?.depotId;
-      if (firstDepotId) {
-        setSelectedDepotId(firstDepotId);
-        setDepotId(firstDepotId);
-      }
-    }
-  }, [selectedDepotId, depotId, data?.data, setSelectedDepotId]);
+    if (selectedDepotId && depotId !== selectedDepotId) setDepotId(selectedDepotId);
+  }, [selectedDepotId, depotId]);
 
   const { data: stockData, refetch: refetchStock } = useQuery({
     queryKey: ['stock', 'depot', depotId || selectedDepotId],
@@ -290,15 +284,14 @@ export default function ProductsListScreen() {
 
         <PickerField
           variant="filter"
-          label="Dépôt"
+          label="Boutique"
           selectedValue={depotId || selectedDepotId || ''}
           onValueChange={(value) => {
             setDepotId(value);
-            setSelectedDepotId(value || null);
+            setSelectedDepotId(value);
           }}
           containerStyle={styles.filterPickerField}
         >
-          <Picker.Item label="Tous" value="" />
           {depots?.data?.map((depot) => (
             <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
           ))}

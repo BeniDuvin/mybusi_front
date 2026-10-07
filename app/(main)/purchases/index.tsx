@@ -3,7 +3,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Spacing } from '@/constants/theme';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import { usePurchases, useSuppliers } from '@/hooks/usePurchases';
 import { useDepots } from '@/hooks/useDepots';
 import { useAppStore } from '@/stores/app.store';
@@ -29,8 +29,7 @@ export default function PurchasesListScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { selectedDepotId, setSelectedDepotId } = useAppStore();
-  const { hasRole } = useAuthContext();
-  const canManage = hasRole(['ADMIN', 'GERANT']);
+  const { canManageStore: canManage } = useStoreAccess();
 
   const [page, setPage] = useState(1);
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
@@ -50,8 +49,9 @@ export default function PurchasesListScreen() {
   });
 
   React.useEffect(() => {
-    if (!depotId && selectedDepotId) {
+    if (selectedDepotId && depotId !== selectedDepotId) {
       setDepotId(selectedDepotId);
+      setPage(1);
     }
   }, [selectedDepotId, depotId]);
 
@@ -180,16 +180,15 @@ export default function PurchasesListScreen() {
       <View style={styles.filtersRow}>
         <PickerField
           variant="filter"
-          label="Dépôt"
+          label="Boutique"
           selectedValue={depotId || selectedDepotId || ''}
           onValueChange={(value) => {
             setDepotId(value);
-            setSelectedDepotId(value || null);
+            setSelectedDepotId(value);
             setPage(1);
           }}
           containerStyle={styles.filterPickerField}
         >
-          <Picker.Item label="Tous" value="" />
           {depots?.data?.map((depot) => (
             <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
           ))}

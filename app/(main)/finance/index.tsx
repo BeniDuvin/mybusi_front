@@ -228,12 +228,11 @@ export default function FinanceHomeScreen() {
         <View style={styles.filtersRow}>
           <PickerField
             variant="filter"
-            label="Dépôt"
+            label="Boutique"
             selectedValue={selectedDepotId || ''}
-            onValueChange={(value) => setSelectedDepotId(value || null)}
+            onValueChange={(value) => setSelectedDepotId(value)}
             containerStyle={styles.filterPickerField}
           >
-            <Picker.Item label="Tous" value="" />
             {depots?.data?.map((depot) => (
               <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
             ))}

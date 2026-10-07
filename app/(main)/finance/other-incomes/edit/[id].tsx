@@ -1,15 +1,13 @@
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { Spacing } from '@/constants/theme';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import { useDepots } from '@/hooks/useDepots';
 import { useUpdateOtherIncome } from '@/hooks/useFinance';
 import { otherIncomeService } from '@/services/finance.service';
 import type { CreateOtherIncomeRequest } from '@/types';
-import { Picker } from '@react-native-picker/picker';
-import { PickerField } from '@/components/ui/PickerField';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 import { ActivityIndicator, Button, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -18,7 +16,7 @@ export default function EditOtherIncomeScreen() {
   const router = useRouter();
   const { id: idParam } = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
-  const canManage = useAuthContext().hasRole(['ADMIN', 'GERANT']);
+  const { canManageStore: canManage } = useStoreAccess();
 
   React.useEffect(() => {
     if (!canManage) {
@@ -116,16 +114,7 @@ export default function EditOtherIncomeScreen() {
               Modifier entrée hors ventes
             </Text>
 
-            <PickerField
-              label="Dépôt *"
-              selectedValue={formData.depotId}
-              onValueChange={(value) => setFormData((prev) => ({ ...prev, depotId: String(value) }))}
-            >
-              <Picker.Item label="Sélectionner un dépôt" value="" />
-              {depots?.data?.map((depot) => (
-                <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-              ))}
-            </PickerField>
+            <Text style={{ marginBottom: Spacing.md }}>Boutique : {depots?.data?.find((depot) => depot.id === formData.depotId)?.name || ""}</Text>
             <TextInput
               label="Rubrique *"
               value={formData.category}

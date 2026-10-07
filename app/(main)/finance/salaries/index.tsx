@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSalaries, useDeleteSalary } from '@/hooks/useFinance';
 import { useUsers } from '@/hooks/useUsers';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { Spacing } from '@/constants/theme';
@@ -44,9 +44,7 @@ const MONTH_OPTIONS = [
 export default function SalariesListScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { hasRole } = useAuthContext();
-  const canManage = hasRole(['ADMIN', 'GERANT']);
-  const isAdmin = hasRole(['ADMIN']);
+  const { canManageStore: canManage, isOwner: isAdmin } = useStoreAccess();
 
   const [page, setPage] = useState(1);
   const [userId, setUserId] = useState('');

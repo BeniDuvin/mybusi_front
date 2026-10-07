@@ -1,23 +1,21 @@
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { Spacing } from '@/constants/theme';
-import { useAuthContext } from '@/contexts/AuthContext';
-import { useDepots } from '@/hooks/useDepots';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import { useCreateOtherIncome } from '@/hooks/useFinance';
 import { useAppStore } from '@/stores/app.store';
 import type { CreateOtherIncomeRequest } from '@/types';
-import { Picker } from '@react-native-picker/picker';
-import { PickerField } from '@/components/ui/PickerField';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 import { Button, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StoreContextText } from '@/components/StoreContextText';
 
 export default function CreateOtherIncomeScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { selectedDepotId } = useAppStore();
-  const canManage = useAuthContext().hasRole(['ADMIN', 'GERANT']);
+  const { canManageStore: canManage } = useStoreAccess();
 
   React.useEffect(() => {
     if (!canManage) {
@@ -25,7 +23,6 @@ export default function CreateOtherIncomeScreen() {
     }
   }, [canManage, router]);
   const createMutation = useCreateOtherIncome();
-  const { data: depots } = useDepots();
 
   const [formData, setFormData] = useState<CreateOtherIncomeRequest>({
     depotId: selectedDepotId || '',
@@ -38,13 +35,10 @@ export default function CreateOtherIncomeScreen() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    if (!formData.depotId && selectedDepotId) {
+    if (selectedDepotId && formData.depotId !== selectedDepotId) {
       setFormData((prev) => ({ ...prev, depotId: selectedDepotId }));
     }
-    if (!formData.depotId && depots?.data?.length && !selectedDepotId) {
-      setFormData((prev) => ({ ...prev, depotId: depots.data[0].id }));
-    }
-  }, [depots?.data, formData.depotId, selectedDepotId]);
+  }, [formData.depotId, selectedDepotId]);
 
   const handleSubmit = async () => {
     if (!formData.depotId || !formData.category.trim() || formData.amount <= 0 || !formData.description.trim()) {
@@ -91,16 +85,7 @@ export default function CreateOtherIncomeScreen() {
               Nouvelle entrée hors ventes
             </Text>
 
-            <PickerField
-              label="Dépôt *"
-              selectedValue={formData.depotId}
-              onValueChange={(value) => setFormData((prev) => ({ ...prev, depotId: String(value) }))}
-            >
-              <Picker.Item label="Sélectionner un dépôt" value="" />
-              {depots?.data?.map((depot) => (
-                <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
-              ))}
-            </PickerField>
+            <StoreContextText style={styles.input} />
 
             <TextInput
               label="Rubrique *"

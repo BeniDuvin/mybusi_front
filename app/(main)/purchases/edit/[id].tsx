@@ -1,5 +1,5 @@
 import { Spacing } from '@/constants/theme';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import { usePurchase, useUpdatePurchase } from '@/hooks/usePurchases';
 import type { CreatePurchaseRequest } from '@/types';
 import { PURCHASE_STATUS_LABELS } from '@/utils/constants';
@@ -27,7 +27,7 @@ export default function EditPurchaseScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const canManage = useAuthContext().hasRole(['ADMIN', 'GERANT']);
+  const { canManageStore: canManage } = useStoreAccess();
 
   React.useEffect(() => {
     if (!canManage) {

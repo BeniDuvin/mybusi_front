@@ -9,6 +9,7 @@ export interface User {
   lastName: string;
   role: Role;
   isActive: boolean;
+  mustChangePassword?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -22,6 +23,7 @@ export interface RegisterRequest {
   email: string;
   phone: string;
   password: string;
+  confirmPassword: string;
   firstName: string;
   lastName: string;
   role?: Role;
@@ -41,12 +43,14 @@ export interface ForgotPasswordRequest {
 }
 
 export interface ResetPasswordRequest {
-  token: string;
+  email: string;
+  otpCode: string;
   newPassword: string;
+  confirmPassword: string;
 }
 
 export interface ChangePasswordRequest {
-  currentPassword: string;
+  currentPassword?: string;
   newPassword: string;
 }
 
@@ -64,8 +68,34 @@ export interface Depot {
   phone: string;
   email?: string;
   isActive: boolean;
+  ownerId?: string;
+  users?: { userId: string; role: StoreMemberRole; isActive: boolean; user?: User }[];
   createdAt: string;
   updatedAt: string;
+}
+
+export type StoreMemberRole = 'ADMINISTRATEUR' | 'GERANT' | 'CAISSIER' | 'VENDEUR' | 'MAGASINIER';
+
+export interface StoreMember {
+  userId: string;
+  depotId: string;
+  role: StoreMemberRole;
+  isActive: boolean;
+  user: Pick<User, 'id' | 'firstName' | 'lastName' | 'email' | 'phone'> & {
+    emailVerified?: boolean;
+    mustChangePassword?: boolean;
+  };
+  customRole?: { id: string; name: string } | null;
+}
+
+export interface Subscription {
+  id: string;
+  depotId: string;
+  planCode: string;
+  status: 'TRIAL' | 'ACTIVE' | 'GRACE_PERIOD' | 'EXPIRED' | 'SUSPENDED' | 'CANCELLED';
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  payments: { id: string; amount: number; currency: string; status: string; createdAt: string; paidAt?: string }[];
 }
 
 export interface CreateDepotRequest {

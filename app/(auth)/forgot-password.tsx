@@ -33,15 +33,9 @@ export default function ForgotPasswordScreen() {
     setError('');
 
     try {
-      await authService.requestPasswordReset({ email });
-      setSuccess('Un lien de réinitialisation a été envoyé à votre email');
-      setTimeout(() => {
-        if (router.canGoBack()) {
-          router.back();
-        } else {
-          router.replace('/login');
-        }
-      }, 2500);
+      await authService.requestPasswordReset({ email: email.trim().toLowerCase() });
+      router.replace({ pathname: '/reset-password', params: { email: email.trim().toLowerCase() } });
+      setSuccess('Si cette adresse correspond à un compte, un code de vérification a été envoyé.');
     } catch (err: any) {
       setError(
         err.response?.data?.message || err.message || 'Échec de la réinitialisation'

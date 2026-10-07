@@ -2,11 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { depotService } from '@/services/depot.service';
 import type { CreateDepotRequest } from '@/types';
 
-export const useDepots = (params?: {
+export const useDepots = (params: {
   page?: number;
   limit?: number;
   search?: string;
-}) => {
+} = { page: 1, limit: 100 }) => {
   return useQuery({
     queryKey: ['depots', params],
     queryFn: () => depotService.getAll(params),

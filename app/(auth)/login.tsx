@@ -4,7 +4,10 @@ import { authService } from '@/services/auth.service';
 import type { Role, User } from '@/types';
 import { TEST_CREDENTIALS, type TestCredentialKey } from '@/utils/test-credentials';
 import { isValidEmail } from '@/utils/validation';
+import { api } from '@/services/api';
 import { Link, useRouter } from 'expo-router';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import React, { useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Chip, Dialog, Portal, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
@@ -24,6 +27,35 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showTestDialog, setShowTestDialog] = useState(false);
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const redirectUri = 'mydepot://auth/callback';
+      const authUrl = `${api.defaults.baseURL}auth/google`;
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+      if (result.type === 'cancel' || result.type === 'dismiss') return;
+      if (result.type !== 'success' || !result.url) {
+        setError('La connexion Google n’a pas abouti. Réessayez.');
+        return;
+      }
+
+      const { queryParams } = Linking.parse(result.url);
+      const code = typeof queryParams?.code === 'string' ? queryParams.code : null;
+      if (!code) {
+        setError('La réponse de connexion Google est incomplète. Réessayez.');
+        return;
+      }
+      const response = await authService.exchangeGoogleCode(code);
+      await signIn(response.accessToken, response.refreshToken, response.user);
+      router.replace('/(main)/dashboard');
+    } catch {
+      setError('Connexion Google indisponible. Vérifiez votre connexion puis réessayez.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async (testEmail?: string, testPassword?: string) => {
     const loginEmail = testEmail || email;
@@ -69,7 +101,7 @@ export default function LoginScreen() {
 
       const response = await authService.login({ email: loginEmail, password: loginPassword });
       await signIn(response.accessToken, response.refreshToken, response.user);
-      router.replace('/(main)/dashboard');
+      router.replace(response.user.mustChangePassword ? '/(main)/force-change-password' : '/(main)/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Échec de la connexion');
     } finally {
@@ -173,11 +205,14 @@ export default function LoginScreen() {
               }
             />
 
-            {/* <Link href="/forgot-password" asChild>
+            <Link href="/forgot-password" asChild>
               <Button mode="text" style={styles.forgotButton}>
                 Mot de passe oublié ?
               </Button>
-            </Link> */}
+            </Link>
+            <Link href="/email-verification" asChild>
+              <Button mode="text">Vérifier mon adresse e-mail</Button>
+            </Link>
 
             <Button
               mode="contained"
@@ -197,6 +232,17 @@ export default function LoginScreen() {
               <View style={styles.dividerLine} />
             </View>
 
+            <Button
+              mode="outlined"
+              icon="google"
+              onPress={handleGoogleLogin}
+              loading={loading}
+              disabled={loading}
+              style={styles.loginButton}
+            >
+              Continuer avec Google
+            </Button>
+
             {/* <Link href="/otp-verification" asChild>
               <Button mode="outlined" icon="phone" style={styles.otpButton}>
                 Se connecter par SMS
@@ -207,7 +253,7 @@ export default function LoginScreen() {
               <Text variant="bodyMedium">Pas de compte ? </Text>
               <Link href="/register" asChild>
                 <Button mode="text" compact>
-                  S'inscrire
+                  S’inscrire
                 </Button>
               </Link>
             </View>

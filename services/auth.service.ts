@@ -13,9 +13,19 @@ import type {
 } from '@/types';
 
 export const authService = {
-  async register(data: RegisterRequest): Promise<AuthResponse> {
-    const response = await api.post<AuthResponse>('/auth/register', data);
+  async register(data: RegisterRequest): Promise<{ message: string }> {
+    const response = await api.post<{ message: string }>('/auth/register', data);
+    return response.data;
+  },
+
+  async verifyEmail(data: { email: string; otpCode: string }): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/email/verify', data);
     await this.saveTokens(response.data);
+    return response.data;
+  },
+
+  async resendEmailOtp(email: string): Promise<{ message: string }> {
+    const response = await api.post<{ message: string }>('/auth/email/resend', { email });
     return response.data;
   },
 
@@ -25,13 +35,19 @@ export const authService = {
     return response.data;
   },
 
+  async exchangeGoogleCode(code: string): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/google/exchange', { code });
+    await this.saveTokens(response.data);
+    return response.data;
+  },
+
   async requestPasswordReset(data: ForgotPasswordRequest): Promise<{ message: string }> {
-    const response = await api.post<{ message: string }>('/auth/forgot-password', data);
+    const response = await api.post<{ message: string }>('/auth/password/forgot', data);
     return response.data;
   },
 
   async resetPassword(data: ResetPasswordRequest): Promise<{ message: string }> {
-    const response = await api.post<{ message: string }>('/auth/reset-password', data);
+    const response = await api.post<{ message: string }>('/auth/password/reset', data);
     return response.data;
   },
 

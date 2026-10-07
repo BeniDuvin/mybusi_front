@@ -1,18 +1,22 @@
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import React, { useEffect } from 'react';
 import { useTheme } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StoreSelector } from '@/components/StoreSelector';
 
 export default function MainLayout() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { user, hasRole } = useAuthContext();
+  const { memberRole, isOwner, canManageStore, canSell } = useStoreAccess();
+  const isGlobalAdmin = hasRole(['ADMIN']);
   const router = useRouter();
   const segments = useSegments();
-  const canManage = hasRole(['ADMIN', 'GERANT']);
-  const isAdmin = hasRole(['ADMIN']);
+  const canManage = canManageStore;
+  const isAdmin = isGlobalAdmin;
 
   useEffect(() => {
     if (!user) return;
@@ -20,10 +24,15 @@ export default function MainLayout() {
     const currentRoot = segments[1];
     if (!currentRoot) return;
 
-    const adminOnlyRoots = ['users', 'depots', 'settings'];
-    const managerRoots = ['finance', 'expenses', 'other-incomes', 'payments'];
+    const adminOnlyRoots = ['users', 'settings'];
+    const ownerOnlyRoots = ['depots'];
+    const managerRoots = ['finance', 'expenses', 'other-incomes', 'payments', 'purchases'];
 
     if (adminOnlyRoots.includes(currentRoot) && !isAdmin) {
+      router.replace('/profile');
+      return;
+    }
+    if (ownerOnlyRoots.includes(currentRoot) && !isOwner) {
       router.replace('/profile');
       return;
     }
@@ -31,22 +40,28 @@ export default function MainLayout() {
     if (managerRoots.includes(currentRoot) && !canManage) {
       router.replace('/dashboard');
     }
-  }, [user, segments, isAdmin, canManage, router]);
+    if (currentRoot === 'sales' && !canSell) router.replace('/dashboard');
+  }, [user, segments, isAdmin, isOwner, canManage, canSell, router]);
 
   const tabIcon = (name: React.ComponentProps<typeof MaterialCommunityIcons>['name']) => {
-    return ({ focused }: { focused: boolean }) => (
+    const TabIcon = ({ focused }: { focused: boolean }) => (
       <MaterialCommunityIcons
         name={name}
         size={22}
         color={focused ? theme.colors.primary : theme.colors.onSurface}
       />
     );
+    TabIcon.displayName = `TabIcon(${name})`;
+    return TabIcon;
   };
 
   return (
     <Tabs
       screenOptions={{
-        headerShown: false,
+        headerShown: true,
+        headerTitle: () => <StoreSelector />,
+        headerTitleAlign: 'left',
+        headerStyle: { backgroundColor: theme.colors.background },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.onSurface,
         tabBarStyle: {
@@ -83,7 +98,7 @@ export default function MainLayout() {
           title: "Entrées d'argent",
           tabBarLabel: 'Entrées',
           tabBarIcon: tabIcon('cash-plus'),
-          href: canManage ? undefined : null,
+          href: canManage && !!memberRole ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -92,7 +107,7 @@ export default function MainLayout() {
           title: 'Dépenses',
           tabBarLabel: 'Dépenses',
           tabBarIcon: tabIcon('cash-minus'),
-          href: canManage ? undefined : null,
+          href: canManage && !!memberRole ? undefined : null,
         }}
       />
       <Tabs.Screen
@@ -119,6 +134,10 @@ export default function MainLayout() {
       <Tabs.Screen name="finance" options={{ href: null }} />
       <Tabs.Screen name="users/index" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
+      <Tabs.Screen name="onboarding-store" options={{ href: null }} />
+      <Tabs.Screen name="members" options={{ href: null }} />
+      <Tabs.Screen name="force-change-password" options={{ href: null }} />
+      <Tabs.Screen name="subscription" options={{ href: null }} />
       <Tabs.Screen name="help" options={{ href: null }} />
       <Tabs.Screen name="about" options={{ href: null }} />
     </Tabs>

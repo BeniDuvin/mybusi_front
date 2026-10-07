@@ -1,7 +1,7 @@
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { Spacing } from '@/constants/theme';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import { useDepots } from '@/hooks/useDepots';
 import { useDeleteOtherIncome, useOtherIncomes } from '@/hooks/useFinance';
 import { invoiceService } from '@/services/invoice.service';
@@ -21,9 +21,7 @@ export default function OtherIncomesListScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { selectedDepotId, setSelectedDepotId } = useAppStore();
-  const { hasRole } = useAuthContext();
-  const canManage = hasRole(['ADMIN', 'GERANT']);
-  const isAdmin = hasRole(['ADMIN']);
+  const { canManageStore: canManage, isOwner: isAdmin } = useStoreAccess();
   const { data: depots } = useDepots();
   const deleteMutation = useDeleteOtherIncome();
 
@@ -124,15 +122,14 @@ export default function OtherIncomesListScreen() {
       <View style={styles.filtersRow}>
         <PickerField
           variant="filter"
-          label="Dépôt"
+          label="Boutique"
           selectedValue={selectedDepotId || ''}
           onValueChange={(value) => {
-            setSelectedDepotId(value || null);
+            setSelectedDepotId(value);
             setPage(1);
           }}
           containerStyle={styles.filterPickerField}
         >
-          <Picker.Item label="Tous" value="" />
           {depots?.data?.map((depot) => (
             <Picker.Item key={depot.id} label={depot.name} value={depot.id} />
           ))}

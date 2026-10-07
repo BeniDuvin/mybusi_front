@@ -1,5 +1,6 @@
 import { Spacing } from '@/constants/theme';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useStoreAccess } from '@/hooks/useStoreAccess';
 import { ROLE_LABELS } from '@/utils/constants';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -19,8 +20,9 @@ export default function ProfileScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { user, signOut, hasRole } = useAuthContext();
+  const { memberRole, store, isOwner, canManageStore, canManageMembers } = useStoreAccess();
   const isAdmin = hasRole(['ADMIN']);
-  const canManage = hasRole(['ADMIN', 'GERANT']);
+  const canManage = canManageStore;
 
   const handleLogout = async () => {
     await signOut();
@@ -52,7 +54,7 @@ export default function ProfileScreen() {
                 {user?.email}
               </Text>
               <Text variant="bodySmall" style={styles.userRole}>
-                {user?.role && ROLE_LABELS[user.role]}
+                {memberRole ? ({ ADMINISTRATEUR: 'Administrateur boutique', GERANT: 'Gérant', CAISSIER: 'Caissier', VENDEUR: 'Vendeur', MAGASINIER: 'Magasinier' } as Record<string, string>)[memberRole] : user?.role && ROLE_LABELS[user.role]}
               </Text>
               
             </Card.Content>
@@ -74,7 +76,7 @@ export default function ProfileScreen() {
           <Divider />
           <List.Item
             title="Rôle"
-            description={user?.role && ROLE_LABELS[user.role]}
+            description={memberRole ? ({ ADMINISTRATEUR: 'Administrateur boutique', GERANT: 'Gérant', CAISSIER: 'Caissier', VENDEUR: 'Vendeur', MAGASINIER: 'Magasinier' } as Record<string, string>)[memberRole] : user?.role && ROLE_LABELS[user.role]}
             left={(props) => <List.Icon {...props} icon="shield-account" />}
           />
         </Card>
@@ -105,6 +107,13 @@ export default function ProfileScreen() {
             onPress={() => router.push('/about')}
           />
         </Card>
+
+        {canManageMembers && (
+          <Card style={styles.adminCard}>
+            <List.Item title="Membres et rôles" description="Gérer les accès de cette boutique" left={(props) => <List.Icon {...props} icon="account-cog-outline" />} right={(props) => <List.Icon {...props} icon="chevron-right" />} onPress={() => router.push('/members')} />
+            <Divider />
+          </Card>
+        )}
 
         {canManage && (
           <Card style={styles.adminCard}>
@@ -163,7 +172,7 @@ export default function ProfileScreen() {
               onPress={() => router.push('/payments')}
             />
             <Divider />
-            {isAdmin && (
+            {isOwner && (
               <>
                 <List.Item
                   title="Gestion des dépôts"
